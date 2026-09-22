@@ -11,7 +11,7 @@ Successor to spoticli, which stays around as the legacy app.
 | `src/cli` | `spo.exe` - the command line |
 | `src/monitor` | `spo-monitor.exe` - daily snapshot + Windows toast, run by a Scheduled Task |
 | `tests/core.test` | NUnit tests for `core` |
-| `scripts/deploy.ps1` | Publish and install `spo.exe` to `%LOCALAPPDATA%\Programs\spo` |
+| `scripts/deploy.ps1` | Publish and install the CLI as `spo2.exe` to `%LOCALAPPDATA%\Programs\spo` (renamed back to `spo.exe` once spoticli is retired) |
 | `scripts/install-monitor.ps1` | Publish the monitor and register the daily Scheduled Task |
 
 State lives in `%APPDATA%\spo` (`config.json`, `history.db`, `logs\`). The first time spo runs
@@ -23,9 +23,9 @@ without a config it copies the spoticli login and monitor history over; spoticli
 dotnet build spo.slnx
 dotnet test spo.slnx
 .\scripts\deploy.ps1
-spo config --client-id <id> --client-secret <secret>   # or: spo config --from-env
-spo login
-spo top
+spo2 config --client-id <id> --client-secret <secret>   # or: spo2 config --from-env
+spo2 login
+spo2 top
 .\scripts\install-monitor.ps1
 ```
 
