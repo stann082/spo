@@ -1,0 +1,23 @@
+name: Build and test
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    types: [opened, synchronize, reopened]
+jobs:
+  build:
+    name: Build and test
+    # The monitor targets a Windows TFM for its toast notifications.
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+      - name: Restore
+        run: dotnet restore spo.slnx
+      - name: Build
+        run: dotnet build spo.slnx --no-restore -c Release
+      - name: Test
+        run: dotnet test spo.slnx --no-build -c Release
