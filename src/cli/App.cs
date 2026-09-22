@@ -35,13 +35,17 @@ public class App
         return Parser.Default.ParseArguments<ConfigOptions,
                 LoginOptions,
                 LogoutOptions,
-                TopOptions>(args)
+                PlaylistsOptions,
+                TopOptions,
+                TracksOptions>(args)
             .MapResult(
                 (ConfigOptions opts) => ConfigCommand.ExecuteAsync(opts, _config),
                 (LoginOptions opts) => LoginCommand.ExecuteAsync(opts, _loginService),
                 (LogoutOptions _) => LogoutCommand.ExecuteAsync(_config),
+                (PlaylistsOptions opts) => PlaylistsCommand.ExecuteAsync(opts, _clientFactory),
                 (TopOptions opts) => TopCommand.ExecuteAsync(opts, _clientFactory),
-                _ => Task.FromResult(2));
+                (TracksOptions opts) => TracksCommand.ExecuteAsync(opts, _clientFactory),
+                errors => Task.FromResult(errors.IsHelp() || errors.IsVersion() ? 0 : 2));
     }
 
     #endregion

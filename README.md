@@ -35,12 +35,13 @@ The Spotify app needs `http://127.0.0.1:5000/callback` registered as a redirect 
 
 These exist because spoticli drifted without them.
 
-- **One verb per action.** Prefer `playlist import` over a `playlists` verb with a flag per mode.
-  Options that change *how* a verb runs are fine; options that change *what* it does are a new verb.
+- **Modes within a verb are mutually exclusive.** When options pick different actions (e.g.
+  `playlists --create` vs `playlists --query`), put them in different `SetName`s so combining them
+  is a parse error, not a silent override.
 - **Errors are exceptions.** Throw `SpoException` with a message that says what to do next. Only
   `Program.Main` turns exceptions into exit codes - nothing calls `Environment.Exit`.
-- **Long options by default.** Short flags only where they mean the same thing in every verb:
-  `-l` = `--limit`, `-r` = `--range`.
+- **Long options by default.** Short flags only where they mean the same thing in every verb.
+  Current exception, kept from spoticli: `-r` is `--range` in `top` but `--recent` in `tracks`.
 - **Shared option names mean one thing.** If a verb takes `--dry-run`, every write in it honours it.
   Parallelism is `--concurrency`; request sizes are never an option.
 - **Respect Spotify's request limits** through `SpotifyLimits` + `Batching.ForEachChunkAsync`.
