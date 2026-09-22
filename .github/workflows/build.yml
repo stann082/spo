@@ -15,9 +15,9 @@ jobs:
       - uses: actions/setup-dotnet@v4
         with:
           global-json-file: global.json
-      - name: Restore
-        run: dotnet restore spo.slnx
+      # Build restores for itself: the exes only set their win-x64 runtime in Release, so a
+      # separate configuration-less restore would leave that runtime out of the assets file.
       - name: Build
-        run: dotnet build spo.slnx --no-restore -c Release
+        run: dotnet build spo.slnx -c Release
       - name: Test
         run: dotnet test spo.slnx --no-build -c Release
