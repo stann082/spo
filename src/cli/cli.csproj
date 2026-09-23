@@ -3,6 +3,11 @@
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <AssemblyName>spo</AssemblyName>
+    <!-- Build straight into artifacts\build so a local change can be tried with .\artifacts\build\spo.exe.
+         No net10.0 / win-x64 subfolders; Debug and Release share the folder, the last build wins. -->
+    <OutputPath>$(MSBuildThisFileDirectory)..\..\artifacts\build\</OutputPath>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    <AppendRuntimeIdentifierToOutputPath>false</AppendRuntimeIdentifierToOutputPath>
   </PropertyGroup>
 
   <PropertyGroup Condition=" '$(Configuration)' == 'Release' ">
