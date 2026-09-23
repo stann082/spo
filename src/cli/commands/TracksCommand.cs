@@ -1,5 +1,6 @@
 using cli.options;
 using core;
+using core.export;
 using core.spotify;
 using SpotifyAPI.Web;
 
@@ -17,18 +18,24 @@ public static class TracksCommand
             throw new SpoException($"--recent must be between 1 and {SpotifyLimits.RecentlyPlayedMax}.");
         }
 
-        var format = options.Format?.Trim().ToLowerInvariant();
-        if (format is not ("inline" or "table"))
-        {
-            throw new SpoException($"Unknown format '{options.Format}'. Use inline or table.");
-        }
+        var format = OutputFormat.Parse(options.Format, "inline", "table", "json");
 
         var spotify = clientFactory.CreateUserClient();
         var paging = await spotify.Player.GetRecentlyPlayed(new PlayerRecentlyPlayedRequest { Limit = options.Recent });
 
-        var plays = (paging.Items ?? [])
+        var history = (paging.Items ?? [])
             .Where(i => i.Track != null)
             .OrderByDescending(i => i.PlayedAt)
+            .ToList();
+
+        if (format == "json")
+        {
+            // Always an array, even an empty one, so scripts never have to special-case "no plays".
+            Console.WriteLine(JsonOutput.Serialize(history.Select(i => TrackRecord.From(i.Track, playedAt: i.PlayedAt))));
+            return 0;
+        }
+
+        var plays = history
             .Select(i => new Play(
                 i.Track.Name,
                 string.Join(", ", i.Track.Artists.Select(a => a.Name)),

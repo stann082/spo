@@ -18,7 +18,10 @@ public class PlaylistsOptions
     [Option("show-genres", SetName = "list", HelpText = "With --show-tracks, add the genres of each track's artists. Costs one extra request per 50 distinct artists.")]
     public bool ShowGenres { get; set; }
 
-    [Option("show-track-id", SetName = "list", HelpText = "With --show-tracks, append each track's id.")]
+    [Option("show-track-id", SetName = "list", HelpText = "With --show-tracks, append each track's id. JSON output always includes ids.")]
     public bool ShowTrackId { get; set; }
+
+    [Option("format", SetName = "list", Default = "text", HelpText = "Output format: text or json. JSON nests each playlist's tracks and adds album type, duration, ISRC and date added.")]
+    public string Format { get; set; }
 
 }

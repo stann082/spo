@@ -13,7 +13,7 @@ public class TracksOptions
     [Option('t', "time", HelpText = "Show when each track was played (inline format; the table always shows it).")]
     public bool DisplayTime { get; set; }
 
-    [Option('f', "format", Default = "inline", HelpText = "Output format: inline or table.")]
+    [Option('f', "format", Default = "inline", HelpText = "Output format: inline, table or json. JSON always includes when each track was played.")]
     public string Format { get; set; }
 
 }

@@ -1,5 +1,6 @@
 using cli.options;
 using core;
+using core.export;
 using core.playlists;
 using core.spotify;
 using SpotifyAPI.Web;
@@ -101,17 +102,27 @@ public static class PlaylistsCommand
             throw new SpoException("--show-genres only applies together with --show-tracks.");
         }
 
+        bool json = OutputFormat.Parse(options.Format, "text", "json") == "json";
+
         var spotify = clientFactory.CreateUserClient();
 
         var page = await spotify.Playlists.CurrentUsers(new PlaylistCurrentUsersRequest { Limit = 50 });
-        IEnumerable<SimplePlaylist> playlists = await spotify.PaginateAll(page);
+        IEnumerable<SimplePlaylist> matches = await spotify.PaginateAll(page);
         if (!string.IsNullOrEmpty(options.Query))
         {
-            playlists = playlists.Where(p => p.Name.Contains(options.Query, StringComparison.OrdinalIgnoreCase));
+            matches = matches.Where(p => p.Name.Contains(options.Query, StringComparison.OrdinalIgnoreCase));
         }
+
+        var playlists = matches.ToList();
 
         if (!options.ShowTracks)
         {
+            if (json)
+            {
+                Console.WriteLine(JsonOutput.Serialize(playlists.Select(p => PlaylistRecord.From(p))));
+                return 0;
+            }
+
             foreach (var playlist in playlists)
             {
                 Console.WriteLine(playlist.Name);
@@ -120,18 +131,30 @@ public static class PlaylistsCommand
             return 0;
         }
 
-        var tracks = new List<FullTrack>();
+        var itemsByPlaylist = new List<(SimplePlaylist playlist, List<PlaylistTrack<IPlayableItem>> items)>();
         foreach (var playlist in playlists)
         {
             var itemsPage = await spotify.Playlists.GetItems(playlist.Id);
-            tracks.AddRange((await spotify.PaginateAll(itemsPage)).Select(item => item.Track).OfType<FullTrack>());
+            var items = (await spotify.PaginateAll(itemsPage)).Where(item => item.Track is FullTrack).ToList();
+            itemsByPlaylist.Add((playlist, items));
         }
+
+        var tracks = itemsByPlaylist.SelectMany(x => x.items).Select(item => (FullTrack)item.Track).ToList();
 
         // Genres need every artist up front, so they can be looked up in a few batched calls
         // rather than one call per track.
         var genresByArtist = options.ShowGenres
             ? await ArtistGenres.FetchAsync(spotify, tracks.SelectMany(t => t.Artists.Select(a => a.Id)))
             : null;
+
+        if (json)
+        {
+            var records = itemsByPlaylist.Select(x => PlaylistRecord.From(
+                x.playlist,
+                x.items.Select(item => TrackRecord.From((FullTrack)item.Track, addedAt: item.AddedAt, genresByArtist: genresByArtist)).ToList()));
+            Console.WriteLine(JsonOutput.Serialize(records));
+            return 0;
+        }
 
         foreach (var track in tracks)
         {
