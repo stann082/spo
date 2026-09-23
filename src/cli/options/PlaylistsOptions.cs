@@ -15,6 +15,9 @@ public class PlaylistsOptions
     [Option("show-tracks", SetName = "list", HelpText = "List the tracks of each matching playlist as [Song],[Artists],[Album],[Year].")]
     public bool ShowTracks { get; set; }
 
+    [Option("show-genres", SetName = "list", HelpText = "With --show-tracks, add the genres of each track's artists. Costs one extra request per 50 distinct artists.")]
+    public bool ShowGenres { get; set; }
+
     [Option("show-track-id", SetName = "list", HelpText = "With --show-tracks, append each track's id.")]
     public bool ShowTrackId { get; set; }
 

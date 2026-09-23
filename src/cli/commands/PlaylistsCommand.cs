@@ -96,6 +96,11 @@ public static class PlaylistsCommand
             throw new SpoException("--show-track-id only applies together with --show-tracks.");
         }
 
+        if (options.ShowGenres && !options.ShowTracks)
+        {
+            throw new SpoException("--show-genres only applies together with --show-tracks.");
+        }
+
         var spotify = clientFactory.CreateUserClient();
 
         var page = await spotify.Playlists.CurrentUsers(new PlaylistCurrentUsersRequest { Limit = 50 });
@@ -105,29 +110,49 @@ public static class PlaylistsCommand
             playlists = playlists.Where(p => p.Name.Contains(options.Query, StringComparison.OrdinalIgnoreCase));
         }
 
-        foreach (var playlist in playlists)
+        if (!options.ShowTracks)
         {
-            if (!options.ShowTracks)
+            foreach (var playlist in playlists)
             {
                 Console.WriteLine(playlist.Name);
-                continue;
             }
 
+            return 0;
+        }
+
+        var tracks = new List<FullTrack>();
+        foreach (var playlist in playlists)
+        {
             var itemsPage = await spotify.Playlists.GetItems(playlist.Id);
-            foreach (var item in await spotify.PaginateAll(itemsPage))
-            {
-                if (item.Track is not FullTrack track)
-                {
-                    continue;
-                }
+            tracks.AddRange((await spotify.PaginateAll(itemsPage)).Select(item => item.Track).OfType<FullTrack>());
+        }
 
-                var artists = string.Join(", ", track.Artists.Select(a => a.Name));
-                var line = $"[{track.Name}],[{artists}],[{track.Album?.Name}],[{ReleaseDate.Year(track.Album?.ReleaseDate)}]";
-                Console.WriteLine(options.ShowTrackId ? $"{line},[{track.Id}]" : line);
-            }
+        // Genres need every artist up front, so they can be looked up in a few batched calls
+        // rather than one call per track.
+        var genresByArtist = options.ShowGenres
+            ? await ArtistGenres.FetchAsync(spotify, tracks.SelectMany(t => t.Artists.Select(a => a.Id)))
+            : null;
+
+        foreach (var track in tracks)
+        {
+            Console.WriteLine(FormatTrack(track, genresByArtist, options.ShowTrackId));
         }
 
         return 0;
+    }
+
+    private static string FormatTrack(FullTrack track, IReadOnlyDictionary<string, IReadOnlyList<string>> genresByArtist, bool showTrackId)
+    {
+        var artists = string.Join(", ", track.Artists.Select(a => a.Name));
+        var line = $"[{track.Name}],[{artists}],[{track.Album?.Name}],[{ReleaseDate.Year(track.Album?.ReleaseDate)}]";
+
+        if (genresByArtist != null)
+        {
+            var genres = ArtistGenres.ForTrack(track.Artists.Select(a => a.Id), genresByArtist);
+            line += $",[{string.Join(", ", genres)}]";
+        }
+
+        return showTrackId ? $"{line},[{track.Id}]" : line;
     }
 
     #endregion

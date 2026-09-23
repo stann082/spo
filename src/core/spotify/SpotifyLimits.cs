@@ -13,6 +13,9 @@ public static class SpotifyLimits
     /// <summary>Items per add/remove call on a playlist.</summary>
     public const int PlaylistItemsPerRequest = 100;
 
+    /// <summary>Artist ids per "get several artists" call.</summary>
+    public const int ArtistsPerRequest = 50;
+
     /// <summary>Largest page Spotify returns for top artists and tracks.</summary>
     public const int TopItemsMax = 50;
 
