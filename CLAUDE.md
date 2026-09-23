@@ -39,7 +39,7 @@ dotnet test
 The exe acts on the owner's real account (`%APPDATA%\spo\config.json`).
 
 - Read-only commands (`playlists`, `--show-tracks`, `top`, `tracks`) are fine to run freely.
-- Anything that writes (`--create`, `--add`, `--split`, `--mark-orphans`): run with `--dry-run`
+- Anything that writes (`--create`, `--add`, `--split`, `--move`, `--mark-orphans`): run with `--dry-run`
   first, show the plan, get approval, run it, then verify by reading the result back.
 - `trackCount` in `playlists --format json` lags for newly created playlists; count tracks with
   `--show-tracks` instead.
@@ -49,7 +49,7 @@ The exe acts on the owner's real account (`%APPDATA%\spo\config.json`).
 ## Playlist work
 
 1. Export: `spo playlists -q "<name>" --show-tracks --show-genres --format json`.
-2. Write the plan file (`--create` / `--add` / `--split` format, see `--help`) to a scratch
+2. Write the plan file (`--create` / `--add` / `--split` / `--move` format, see `--help`) to a scratch
    folder, never the repo.
 3. `--dry-run`, check every search match (album, year, id), swap bad matches for ids.
 4. Run, then read back and compare counts.
