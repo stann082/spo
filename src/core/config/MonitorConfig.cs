@@ -12,4 +12,10 @@ public class MonitorConfig
     /// <summary>Days of history to keep. Zero or less keeps everything.</summary>
     public int RetentionDays { get; set; } = 365;
 
+    /// <summary>
+    /// Name of the playlist kept equal to your top 50 tracks of the last 4 weeks, in rank order.
+    /// "{year}" becomes the current year, so each year gets its own playlist. Empty turns it off.
+    /// </summary>
+    public string FavoritesPlaylist { get; set; } = "{year} Favs";
+
 }

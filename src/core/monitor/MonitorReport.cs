@@ -39,6 +39,11 @@ public static class MonitorReport
             }
         }
 
+        if (result.Favorites != null)
+        {
+            lines.Add(result.Favorites.Describe());
+        }
+
         return lines;
     }
 

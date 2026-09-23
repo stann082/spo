@@ -43,6 +43,9 @@ The exe acts on the owner's real account (`%APPDATA%\spo\config.json`).
   first, show the plan, get approval, run it, then verify by reading the result back.
 - `trackCount` in `playlists --format json` lags for newly created playlists; count tracks with
   `--show-tracks` instead.
+- A real monitor run writes too: it rewrites the `{year} Favs` playlist (`Monitor.FavoritesPlaylist`)
+  to match the top 50 tracks of the last 4 weeks. Try monitor changes with `--dry-run --no-notify`.
+  Spotify's top list shifts within minutes, so a rerun soon after can report a few moves.
 
 ## Playlist work
 

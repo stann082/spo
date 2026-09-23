@@ -58,11 +58,16 @@ public class TopMonitorService : ITopMonitorService
             pruned = await _store.PruneAsync(capturedAt.AddDays(-settings.RetentionDays), cancellationToken);
         }
 
+        var favorites = string.IsNullOrWhiteSpace(settings.FavoritesPlaylist)
+            ? null
+            : await SyncFavoritesAsync(spotify, FavoritesPlaylist.Name(settings.FavoritesPlaylist, DateTime.Now), persist, cancellationToken);
+
         return new MonitorRunResult
         {
             CapturedAt = capturedAt,
             Diffs = diffs,
-            PrunedSnapshots = pruned
+            PrunedSnapshots = pruned,
+            Favorites = favorites
         };
     }
 
@@ -98,6 +103,85 @@ public class TopMonitorService : ITopMonitorService
         }
 
         return diff;
+    }
+
+    /// <summary>
+    /// Makes the favorites playlist equal to the top tracks of the last 4 weeks, in rank order,
+    /// creating it if this year's does not exist yet. A failure is reported in the result rather
+    /// than thrown: the snapshots are already saved and the report should still go out.
+    /// </summary>
+    private static async Task<FavoritesSyncResult> SyncFavoritesAsync(ISpotifyClient spotify, string name, bool persist, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var top = await FetchTracksAsync(spotify, "short", SpotifyLimits.TopItemsMax, cancellationToken);
+            var desired = top.Select(t => $"spotify:track:{t.SpotifyId}").ToList();
+
+            var me = await spotify.UserProfile.Current(cancellationToken);
+            var page = await spotify.Playlists.CurrentUsers(new PlaylistCurrentUsersRequest { Limit = 50 }, cancellationToken);
+            var matches = (await spotify.PaginateAll(page))
+                .Where(p => p.Owner?.Id == me.Id && string.Equals(p.Name?.Trim(), name, StringComparison.OrdinalIgnoreCase))
+                .ToList();
+
+            if (matches.Count > 1)
+            {
+                throw new SpoException($"{matches.Count} of your playlists are named '{name}'. Rename or delete the extras.");
+            }
+
+            var playlist = matches.SingleOrDefault();
+            var current = new List<string>();
+            if (playlist != null)
+            {
+                var itemsPage = await spotify.Playlists.GetItems(playlist.Id, cancellationToken);
+                current = (await spotify.PaginateAll(itemsPage))
+                    .Select(item => item.Track switch
+                    {
+                        FullTrack track => track.Uri,
+                        FullEpisode episode => episode.Uri,
+                        _ => null
+                    })
+                    .Where(uri => uri != null)
+                    .ToList();
+            }
+
+            var plan = FavoritesPlaylist.Plan(current, desired);
+            var result = new FavoritesSyncResult
+            {
+                PlaylistName = name,
+                Created = playlist == null,
+                Plan = plan,
+                TrackCount = desired.Count,
+                DryRun = !persist
+            };
+
+            if (!persist || (playlist != null && plan.IsUnchanged))
+            {
+                return result;
+            }
+
+            var playlistId = playlist?.Id;
+            if (playlistId == null)
+            {
+                var request = new PlaylistCreateRequest(name)
+                {
+                    Public = true,
+                    Description = "Your top tracks of the last 4 weeks, kept up to date daily by spo."
+                };
+                playlistId = (await spotify.Playlists.Create(me.Id, request, cancellationToken)).Id;
+            }
+
+            // Replace takes one request's worth; anything past that is appended in order.
+            var first = desired.Take(SpotifyLimits.PlaylistItemsPerRequest).ToList();
+            await spotify.Playlists.ReplaceItems(playlistId, new PlaylistReplaceItemsRequest(first), cancellationToken);
+            await Batching.ForEachChunkAsync(desired.Skip(first.Count).ToList(), SpotifyLimits.PlaylistItemsPerRequest, chunk =>
+                spotify.Playlists.AddItems(playlistId, new PlaylistAddItemsRequest(chunk), cancellationToken));
+
+            return result;
+        }
+        catch (Exception ex) when (ex is APIException or SpoException or HttpRequestException)
+        {
+            return new FavoritesSyncResult { PlaylistName = name, DryRun = !persist, Error = ex.Message };
+        }
     }
 
     private static async Task<List<TopEntry>> FetchArtistsAsync(ISpotifyClient spotify, string range, int limit, CancellationToken cancellationToken)
