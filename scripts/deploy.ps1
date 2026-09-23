@@ -3,10 +3,10 @@
     Publishes the spo CLI as a single self-contained exe and installs it for the current user.
 
 .DESCRIPTION
-    Installs to %LOCALAPPDATA%\Programs\spo\spo2.exe. Add that folder to your user PATH once.
+    Installs to %LOCALAPPDATA%\Programs\spo\spo.exe. Add that folder to your user PATH once.
 
-    The exe is installed as spo2.exe while the legacy spoticli app still owns the name spo.exe
-    (%APPDATA%\utils\spo.exe). Once the legacy app is retired, set $ExeName back to 'spo.exe'.
+    Until the legacy spoticli app was retired (2026-09) the exe was installed as spo2.exe; a
+    leftover spo2.exe in the install folder is removed.
 
 .PARAMETER InstallDir
     Where to put the exe. Defaults to %LOCALAPPDATA%\Programs\spo.
@@ -18,8 +18,7 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
-# Temporary name while the legacy spoticli build is still installed as spo.exe.
-$ExeName    = 'spo2.exe'
+$ExeName    = 'spo.exe'
 
 $RepoRoot   = Split-Path -Parent $PSScriptRoot
 $Project    = Join-Path $RepoRoot 'src\cli\cli.csproj'
@@ -38,6 +37,12 @@ if ($LASTEXITCODE -ne 0) {
 New-Item -ItemType Directory -Force $InstallDir | Out-Null
 Copy-Item (Join-Path $StagingDir 'spo.exe') $ExePath -Force
 Write-Host "Installed $ExePath" -ForegroundColor Green
+
+$oldExe = Join-Path $InstallDir 'spo2.exe'
+if (Test-Path $oldExe) {
+    Remove-Item $oldExe -Force
+    Write-Host "Removed the old $oldExe" -ForegroundColor Green
+}
 
 $command = [System.IO.Path]::GetFileNameWithoutExtension($ExeName)
 $resolved = Get-Command $command -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1

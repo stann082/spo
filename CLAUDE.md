@@ -16,8 +16,8 @@ dotnet test
   Do not make plain builds self-contained or let publish write into `artifacts\build`: a copy of
   the runtime left there stops the framework-dependent dev exe from starting ("You must install
   or update .NET", exit 150).
-- `scripts\deploy.ps1` installs the CLI as `spo2.exe` while the legacy spoticli app still owns
-  `spo.exe`; the name is the single `$ExeName` variable there. Messages inside the app say `spo`.
+- `scripts\deploy.ps1` installs the CLI as `%LOCALAPPDATA%\Programs\spo\spo.exe`. It was `spo2.exe`
+  until the legacy spoticli `spo.exe` in `%APPDATA%\utils` was removed (2026-09).
 - CI (`.github/workflows/build.yml`) builds and tests on Windows. After a push, watch it:
   `gh run watch <id> --exit-status`.
 
