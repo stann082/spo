@@ -15,7 +15,7 @@ public class TopOptions
     [Option('l', "limit", Default = 10, HelpText = "Number of results per list (1-50).")]
     public int Limit { get; set; }
 
-    [Option('r', "range", Default = "medium", HelpText = "Time range: short (4 weeks), medium (6 months), long (all time).")]
+    [Option('r', "range", Default = "medium", HelpText = "Time range: short (4 weeks), medium (6 months), long (12 months).")]
     public string Range { get; set; }
 
 }

@@ -29,7 +29,8 @@ public static class SpotifyTimeRange
         return range switch
         {
             "short" => "the last 4 weeks",
-            "long" => "all time",
+            // Spotify documents long_term as about a year of data, not the whole history.
+            "long" => "the last 12 months",
             _ => "the last 6 months"
         };
     }
