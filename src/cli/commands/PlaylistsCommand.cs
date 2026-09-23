@@ -121,7 +121,8 @@ public static class PlaylistsCommand
                     continue;
                 }
 
-                var line = $"[{track.Name}],[{string.Join(", ", track.Artists.Select(a => a.Name))}]";
+                var artists = string.Join(", ", track.Artists.Select(a => a.Name));
+                var line = $"[{track.Name}],[{artists}],[{track.Album?.Name}],[{ReleaseDate.Year(track.Album?.ReleaseDate)}]";
                 Console.WriteLine(options.ShowTrackId ? $"{line},[{track.Id}]" : line);
             }
         }

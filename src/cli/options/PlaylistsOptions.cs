@@ -12,7 +12,7 @@ public class PlaylistsOptions
     [Option('q', "query", SetName = "list", HelpText = "Only playlists whose name contains this text (case-insensitive).")]
     public string Query { get; set; }
 
-    [Option("show-tracks", SetName = "list", HelpText = "List the tracks of each matching playlist as [Song],[Artists].")]
+    [Option("show-tracks", SetName = "list", HelpText = "List the tracks of each matching playlist as [Song],[Artists],[Album],[Year].")]
     public bool ShowTracks { get; set; }
 
     [Option("show-track-id", SetName = "list", HelpText = "With --show-tracks, append each track's id.")]
