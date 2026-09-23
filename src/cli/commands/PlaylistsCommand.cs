@@ -10,13 +10,6 @@ namespace cli.commands;
 public static class PlaylistsCommand
 {
 
-    #region Constants
-
-    /// <summary>Searches in flight at once when resolving a playlist file.</summary>
-    private const int SearchConcurrency = 5;
-
-    #endregion
-
     #region Public Methods
 
     public static Task<int> ExecuteAsync(PlaylistsOptions options, ISpotifyClientFactory clientFactory)
@@ -26,6 +19,11 @@ public static class PlaylistsCommand
             return CreateAsync(options.CreateFile, options.DryRun, clientFactory);
         }
 
+        if (!string.IsNullOrEmpty(options.AddFile))
+        {
+            return PlaylistAddCommand.ExecuteAsync(options.AddFile, options.DryRun, clientFactory);
+        }
+
         if (!string.IsNullOrEmpty(options.SplitFile))
         {
             return PlaylistSplitCommand.ExecuteAsync(options.SplitFile, options.DryRun, options.MarkOrphans, clientFactory);
@@ -33,7 +31,7 @@ public static class PlaylistsCommand
 
         if (options.DryRun)
         {
-            throw new SpoException("--dry-run only applies to --create and --split; listing never changes anything.");
+            throw new SpoException("--dry-run only applies to --create, --add and --split; listing never changes anything.");
         }
 
         return ListAsync(options, clientFactory);
@@ -50,22 +48,7 @@ public static class PlaylistsCommand
         var spotify = clientFactory.CreateUserClient();
 
         // Search first, create second: a failure part-way through leaves no empty playlist behind.
-        var toSearch = definition.Tracks.Where(t => t.Source == TrackSource.Search).ToList();
-        if (toSearch.Count > 0)
-        {
-            Console.WriteLine($"Searching for {toSearch.Count} track(s)...");
-        }
-
-        var hits = await Batching.MapAsync(toSearch, SearchConcurrency, async (track, token) =>
-        {
-            var response = await spotify.Search.Item(new SearchRequest(SearchRequest.Types.Track, track.SearchQuery), token);
-            return response.Tracks?.Items?.FirstOrDefault()?.Uri;
-        });
-
-        var searchHits = toSearch
-            .Zip(hits)
-            .ToDictionary(pair => pair.First, pair => pair.Second);
-        var result = PlaylistImportResult.Assemble(definition, searchHits);
+        var result = await TrackFileResolver.ResolveAsync(spotify, definition);
 
         if (dryRun)
         {
@@ -89,23 +72,7 @@ public static class PlaylistsCommand
             Console.WriteLine($"Added {result.Uris.Count} of {result.Requested} track(s).");
         }
 
-        if (result.NotFound.Count > 0)
-        {
-            Console.WriteLine("Could not find the following track(s):");
-            foreach (var track in result.NotFound)
-            {
-                Console.WriteLine($"  {track}");
-            }
-        }
-
-        foreach (var group in result.Skipped)
-        {
-            Console.WriteLine($"Skipped ({group.Key}):");
-            foreach (var track in group)
-            {
-                Console.WriteLine($"  {track}");
-            }
-        }
+        TrackFileResolver.ReportLeftovers(result);
 
         if (dryRun)
         {

@@ -24,11 +24,8 @@ public static class PlaylistSplitCommand
         var page = await spotify.Playlists.CurrentUsers(new PlaylistCurrentUsersRequest { Limit = 50 });
         var playlists = await spotify.PaginateAll(page);
 
-        var source = FindSource(playlists, definition.Source);
-        if (source.Owner?.Id != me.Id)
-        {
-            throw new SpoException($"'{source.Name}' belongs to {source.Owner?.DisplayName ?? "someone else"}. Only playlists you own can be split.");
-        }
+        var source = PlaylistLookup.Find(playlists, definition.Source);
+        PlaylistLookup.RequireOwned(source, me.Id, "split");
 
         var itemsPage = await spotify.Playlists.GetItems(source.Id);
         var sourceItems = (await spotify.PaginateAll(itemsPage))
@@ -74,21 +71,6 @@ public static class PlaylistSplitCommand
     #endregion
 
     #region Helper Methods
-
-    private static SimplePlaylist FindSource(IEnumerable<SimplePlaylist> playlists, string nameOrId)
-    {
-        var wanted = nameOrId.Trim();
-        var matches = playlists
-            .Where(p => p.Id == wanted || string.Equals(p.Name?.Trim(), wanted, StringComparison.OrdinalIgnoreCase))
-            .ToList();
-
-        return matches.Count switch
-        {
-            1 => matches[0],
-            0 => throw new SpoException($"No playlist named '{wanted}'. Use its exact name or id."),
-            _ => throw new SpoException($"{matches.Count} playlists are named '{wanted}'. Use the id instead: {string.Join(", ", matches.Select(p => p.Id))}")
-        };
-    }
 
     private static SourceItem ToSourceItem(IPlayableItem item)
     {

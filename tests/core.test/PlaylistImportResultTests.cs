@@ -78,6 +78,38 @@ public class PlaylistImportResultTests
         });
     }
 
+    [Test]
+    public void ExcludeExisting_SkipsWhatThePlaylistHasAndRepeatsInTheFile()
+    {
+        var newOne = new TrackDefinition { Id = "new" };
+        var there = new TrackDefinition { Id = "there" };
+        var repeat = new TrackDefinition { Id = "spotify:track:new" };
+        var definition = new PlaylistDefinition { Name = "X", Tracks = [newOne, there, repeat] };
+
+        var selection = PlaylistImportResult
+            .Assemble(definition, new Dictionary<TrackDefinition, string>())
+            .ExcludeExisting(["spotify:track:there", "spotify:track:other"]);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(selection.ToAdd.Select(t => t.Track), Is.EqualTo(new[] { newOne }));
+            Assert.That(selection.AlreadyThere.Select(t => t.Track), Is.EqualTo(new[] { there, repeat }));
+        });
+    }
+
+    [Test]
+    public void ExcludeExisting_KeepsFileOrderForWhatItAdds()
+    {
+        var hit = new TrackDefinition { Title = "Searched" };
+        var definition = new PlaylistDefinition { Name = "X", Tracks = [new TrackDefinition { Id = "b" }, hit, new TrackDefinition { Id = "a" }] };
+
+        var selection = PlaylistImportResult
+            .Assemble(definition, new Dictionary<TrackDefinition, string> { [hit] = "spotify:track:s" })
+            .ExcludeExisting([]);
+
+        Assert.That(selection.ToAdd.Select(t => t.Uri), Is.EqualTo(new[] { "spotify:track:b", "spotify:track:s", "spotify:track:a" }));
+    }
+
     #endregion
 
 }
