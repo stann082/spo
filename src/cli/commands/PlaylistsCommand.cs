@@ -34,9 +34,14 @@ public static class PlaylistsCommand
             return PlaylistMoveCommand.ExecuteAsync(options.MoveFile, options.DryRun, clientFactory);
         }
 
+        if (!string.IsNullOrEmpty(options.RemoveFile))
+        {
+            return PlaylistRemoveCommand.ExecuteAsync(options.RemoveFile, options.DryRun, clientFactory);
+        }
+
         if (options.DryRun)
         {
-            throw new SpoException("--dry-run only applies to --create, --add, --split and --move; listing never changes anything.");
+            throw new SpoException("--dry-run only applies to --create, --add, --split, --move and --remove; listing never changes anything.");
         }
 
         return ListAsync(options, clientFactory);

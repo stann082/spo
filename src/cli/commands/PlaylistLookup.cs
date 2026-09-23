@@ -1,4 +1,5 @@
 using core;
+using core.playlists;
 using SpotifyAPI.Web;
 
 namespace cli.commands;
@@ -34,6 +35,21 @@ public static class PlaylistLookup
         {
             throw new SpoException($"'{playlist.Name}' belongs to {playlist.Owner?.DisplayName ?? "someone else"}. Only playlists you own can be {action}.");
         }
+    }
+
+    /// <summary>Everything in a playlist that can be moved or removed by uri: tracks and podcast episodes.</summary>
+    public static async Task<List<SourceItem>> GetItemsAsync(ISpotifyClient spotify, string playlistId)
+    {
+        var itemsPage = await spotify.Playlists.GetItems(playlistId);
+        return (await spotify.PaginateAll(itemsPage))
+            .Select(item => item.Track switch
+            {
+                FullTrack track => new SourceItem(track.Uri, $"{track.Name} — {string.Join(", ", track.Artists.Select(a => a.Name))}"),
+                FullEpisode episode => new SourceItem(episode.Uri, $"{episode.Name} (podcast episode)"),
+                _ => null
+            })
+            .Where(item => item != null)
+            .ToList();
     }
 
     #endregion

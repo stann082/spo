@@ -34,8 +34,8 @@ public static class PlaylistMoveCommand
         PlaylistLookup.RequireOwned(source, me.Id, "moved out of");
         PlaylistLookup.RequireOwned(target, me.Id, "moved into");
 
-        var sourceItems = await GetItemsAsync(spotify, source.Id);
-        var targetItems = await GetItemsAsync(spotify, target.Id);
+        var sourceItems = await PlaylistLookup.GetItemsAsync(spotify, source.Id);
+        var targetItems = await PlaylistLookup.GetItemsAsync(spotify, target.Id);
 
         var plan = MovePlan.Build(definition, source.Name, sourceItems, targetItems.Select(i => i.Uri));
 
@@ -63,20 +63,6 @@ public static class PlaylistMoveCommand
     #endregion
 
     #region Helper Methods
-
-    private static async Task<List<SourceItem>> GetItemsAsync(ISpotifyClient spotify, string playlistId)
-    {
-        var itemsPage = await spotify.Playlists.GetItems(playlistId);
-        return (await spotify.PaginateAll(itemsPage))
-            .Select(item => item.Track switch
-            {
-                FullTrack track => new SourceItem(track.Uri, $"{track.Name} — {string.Join(", ", track.Artists.Select(a => a.Name))}"),
-                FullEpisode episode => new SourceItem(episode.Uri, $"{episode.Name} (podcast episode)"),
-                _ => null
-            })
-            .Where(item => item != null)
-            .ToList();
-    }
 
     private static void PrintPlan(SimplePlaylist source, List<SourceItem> sourceItems, SimplePlaylist target, int targetCount, MovePlan plan)
     {

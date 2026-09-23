@@ -27,11 +27,7 @@ public static class PlaylistSplitCommand
         var source = PlaylistLookup.Find(playlists, definition.Source);
         PlaylistLookup.RequireOwned(source, me.Id, "split");
 
-        var itemsPage = await spotify.Playlists.GetItems(source.Id);
-        var sourceItems = (await spotify.PaginateAll(itemsPage))
-            .Select(item => ToSourceItem(item.Track))
-            .Where(item => item != null)
-            .ToList();
+        var sourceItems = await PlaylistLookup.GetItemsAsync(spotify, source.Id);
 
         var plan = SplitPlan.Build(definition, source.Name, sourceItems, playlists.Select(p => p.Name));
 
@@ -71,16 +67,6 @@ public static class PlaylistSplitCommand
     #endregion
 
     #region Helper Methods
-
-    private static SourceItem ToSourceItem(IPlayableItem item)
-    {
-        return item switch
-        {
-            FullTrack track => new SourceItem(track.Uri, $"{track.Name} — {string.Join(", ", track.Artists.Select(a => a.Name))}"),
-            FullEpisode episode => new SourceItem(episode.Uri, $"{episode.Name} (podcast episode)"),
-            _ => null
-        };
-    }
 
     private static void PrintPlan(string sourceName, int sourceCount, SplitPlan plan, bool markOrphans)
     {

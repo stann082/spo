@@ -18,10 +18,13 @@ public class PlaylistsOptions
     [Option("move", SetName = "move", MetaValue = "FILE", HelpText = "Move tracks from one existing playlist to another, as described by a JSON file: { source, target, tracks: [{ id }] }. Tracks are added to the target (unless already there) before they are removed from the source.")]
     public string MoveFile { get; set; }
 
+    [Option("remove", SetName = "remove", MetaValue = "FILE", HelpText = "Remove tracks from an existing playlist, from a JSON file in the --create format; \"name\" picks the playlist. Tracks are removed by id only, and every id must be in the playlist.")]
+    public string RemoveFile { get; set; }
+
     [Option("mark-orphans", SetName = "split", HelpText = "With --split, rename the source to '<name>_orphaned tracks' and make it private if any tracks stay behind.")]
     public bool MarkOrphans { get; set; }
 
-    [Option("dry-run", HelpText = "With --create, --add, --split or --move, show what would happen without changing anything.")]
+    [Option("dry-run", HelpText = "With --create, --add, --split, --move or --remove, show what would happen without changing anything.")]
     public bool DryRun { get; set; }
 
     [Option('q', "query", SetName = "list", HelpText = "Only playlists whose name contains this text (case-insensitive).")]
