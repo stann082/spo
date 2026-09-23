@@ -11,8 +11,8 @@ jobs:
     # The monitor targets a Windows TFM for its toast notifications.
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-dotnet@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
         with:
           global-json-file: global.json
       # Build restores for itself: the exes only set their win-x64 runtime in Release, so a
