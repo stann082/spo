@@ -21,16 +21,29 @@ public static class PlaylistsCommand
 
     public static Task<int> ExecuteAsync(PlaylistsOptions options, ISpotifyClientFactory clientFactory)
     {
-        return !string.IsNullOrEmpty(options.CreateFile)
-            ? CreateAsync(options.CreateFile, clientFactory)
-            : ListAsync(options, clientFactory);
+        if (!string.IsNullOrEmpty(options.CreateFile))
+        {
+            return CreateAsync(options.CreateFile, options.DryRun, clientFactory);
+        }
+
+        if (!string.IsNullOrEmpty(options.SplitFile))
+        {
+            return PlaylistSplitCommand.ExecuteAsync(options.SplitFile, options.DryRun, options.MarkOrphans, clientFactory);
+        }
+
+        if (options.DryRun)
+        {
+            throw new SpoException("--dry-run only applies to --create and --split; listing never changes anything.");
+        }
+
+        return ListAsync(options, clientFactory);
     }
 
     #endregion
 
     #region Helper Methods
 
-    private static async Task<int> CreateAsync(string path, ISpotifyClientFactory clientFactory)
+    private static async Task<int> CreateAsync(string path, bool dryRun, ISpotifyClientFactory clientFactory)
     {
         // Validate the file before logging in or creating anything.
         var definition = PlaylistDefinition.Load(path);
@@ -54,20 +67,27 @@ public static class PlaylistsCommand
             .ToDictionary(pair => pair.First, pair => pair.Second);
         var result = PlaylistImportResult.Assemble(definition, searchHits);
 
-        var me = await spotify.UserProfile.Current();
-        var createRequest = new PlaylistCreateRequest(definition.Name);
-        if (!string.IsNullOrEmpty(definition.Description))
+        if (dryRun)
         {
-            createRequest.Description = definition.Description;
+            Console.WriteLine($"Would create playlist \"{definition.Name}\" with {result.Uris.Count} of {result.Requested} track(s).");
         }
+        else
+        {
+            var me = await spotify.UserProfile.Current();
+            var createRequest = new PlaylistCreateRequest(definition.Name) { Public = true };
+            if (!string.IsNullOrEmpty(definition.Description))
+            {
+                createRequest.Description = definition.Description;
+            }
 
-        var playlist = await spotify.Playlists.Create(me.Id, createRequest);
-        ConsoleWrapper.WriteSuccess($"Created playlist \"{definition.Name}\".");
+            var playlist = await spotify.Playlists.Create(me.Id, createRequest);
+            ConsoleWrapper.WriteSuccess($"Created playlist \"{definition.Name}\".");
 
-        await Batching.ForEachChunkAsync(result.Uris, SpotifyLimits.PlaylistItemsPerRequest, chunk =>
-            spotify.Playlists.AddItems(playlist.Id, new PlaylistAddItemsRequest(chunk)));
+            await Batching.ForEachChunkAsync(result.Uris, SpotifyLimits.PlaylistItemsPerRequest, chunk =>
+                spotify.Playlists.AddItems(playlist.Id, new PlaylistAddItemsRequest(chunk)));
 
-        Console.WriteLine($"Added {result.Uris.Count} of {result.Requested} track(s).");
+            Console.WriteLine($"Added {result.Uris.Count} of {result.Requested} track(s).");
+        }
 
         if (result.NotFound.Count > 0)
         {
@@ -85,6 +105,11 @@ public static class PlaylistsCommand
             {
                 Console.WriteLine($"  {track}");
             }
+        }
+
+        if (dryRun)
+        {
+            ConsoleWrapper.WriteInfo("Dry run: nothing was changed.");
         }
 
         return 0;

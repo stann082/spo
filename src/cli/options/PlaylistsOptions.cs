@@ -9,6 +9,15 @@ public class PlaylistsOptions
     [Option('c', "create", SetName = "create", MetaValue = "FILE", HelpText = "Create a playlist from a JSON file: { name, description, tracks: [{ id } | { title, artist } | { title, artist, status }] }. Tracks with an id are added directly, tracks with a status (e.g. \"blocked\") are skipped and reported, all others are searched by title/artist.")]
     public string CreateFile { get; set; }
 
+    [Option("split", SetName = "split", MetaValue = "FILE", HelpText = "Move tracks out of a playlist into new ones, as described by a JSON file: { source, playlists: [{ name, description, tracks: [{ id }] }] }. Each new playlist is created and filled before its tracks are removed from the source; unclaimed tracks stay behind.")]
+    public string SplitFile { get; set; }
+
+    [Option("mark-orphans", SetName = "split", HelpText = "With --split, rename the source to '<name>_orphaned tracks' and make it private if any tracks stay behind.")]
+    public bool MarkOrphans { get; set; }
+
+    [Option("dry-run", HelpText = "With --create or --split, show what would happen without changing anything.")]
+    public bool DryRun { get; set; }
+
     [Option('q', "query", SetName = "list", HelpText = "Only playlists whose name contains this text (case-insensitive).")]
     public string Query { get; set; }
 

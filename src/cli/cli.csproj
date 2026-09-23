@@ -3,18 +3,27 @@
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <AssemblyName>spo</AssemblyName>
-    <!-- Build straight into artifacts\build so a local change can be tried with .\artifacts\build\spo.exe.
-         No net10.0 / win-x64 subfolders; Debug and Release share the folder, the last build wins. -->
+  </PropertyGroup>
+
+  <!-- Build straight into artifacts\build so a local change can be tried with .\artifacts\build\spo.exe.
+       No net10.0 subfolder; Debug and Release share the folder, the last build wins. Publishing
+       keeps the default bin\ path for its self-contained intermediate build, which would
+       otherwise drop a copy of the runtime in here and break the framework-dependent exe. -->
+  <PropertyGroup Condition=" '$(_IsPublishing)' != 'true' ">
     <OutputPath>$(MSBuildThisFileDirectory)..\..\artifacts\build\</OutputPath>
     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
     <AppendRuntimeIdentifierToOutputPath>false</AppendRuntimeIdentifierToOutputPath>
   </PropertyGroup>
 
-  <PropertyGroup Condition=" '$(Configuration)' == 'Release' ">
+  <!-- Self-contained single file only when publishing. Plain builds (Debug or Release) stay
+       framework-dependent, so they can share artifacts\build without leftover runtime files
+       from one build breaking the other. -->
+  <PropertyGroup Condition=" '$(_IsPublishing)' == 'true' ">
     <PublishSingleFile>true</PublishSingleFile>
     <SelfContained>true</SelfContained>
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>
     <PublishReadyToRun>true</PublishReadyToRun>
+    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
   </PropertyGroup>
 
   <ItemGroup>
