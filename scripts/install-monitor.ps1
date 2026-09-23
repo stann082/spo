@@ -12,11 +12,6 @@
     toast notifications to an interactive session. A Windows Service would satisfy neither.
 
     Snapshots are stored in %APPDATA%\spo\history.db and logs in %APPDATA%\spo\logs.
-    On its first run the monitor imports the spoticli login and history if spo has none yet.
-
-    This installs alongside the legacy "spoticli Top Monitor" task without touching it. If
-    both are enabled you will get two toasts a day - disable the legacy task once this one
-    has run.
 
     The script is idempotent. If the task already exists, it offers to reinstall (republish +
     replace binaries), run it now, or uninstall it.
@@ -144,8 +139,8 @@ if ($null -eq $existing) {
     Write-Host "Task '$TaskName' is not installed. Performing fresh install." -ForegroundColor Cyan
 
     Write-Host ""
-    Write-Host "The monitor reads the Spotify login stored by the CLI (or imports spoticli's)." -ForegroundColor Yellow
-    Write-Host "If you have not logged in with either app as this user, run 'spo login' first." -ForegroundColor Yellow
+    Write-Host "The monitor reads the Spotify login stored by the CLI." -ForegroundColor Yellow
+    Write-Host "If you have not logged in as this user, run 'spo login' first." -ForegroundColor Yellow
     Write-Host ""
 
     Publish-Monitor

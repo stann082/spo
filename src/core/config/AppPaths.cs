@@ -1,14 +1,10 @@
 namespace core.config;
 
-/// <summary>
-/// Where spo keeps its state. Everything lives under %APPDATA%\spo; the legacy spoticli folder is
-/// only ever read, by <see cref="LegacyImport"/>.
-/// </summary>
+/// <summary>Where spo keeps its state. Everything lives under %APPDATA%\spo.</summary>
 public static class AppPaths
 {
 
     public const string AppName = "spo";
-    public const string LegacyAppName = "spoticli";
 
     public const string ConfigFileName = "config.json";
     public const string HistoryFileName = "history.db";
@@ -16,8 +12,6 @@ public static class AppPaths
     private static string AppData => Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
 
     public static string Root => Path.Combine(AppData, AppName);
-
-    public static string LegacyRoot => Path.Combine(AppData, LegacyAppName);
 
     public static string ConfigFile => Path.Combine(Root, ConfigFileName);
 

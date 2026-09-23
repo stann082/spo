@@ -14,8 +14,7 @@ Successor to spoticli, whose `spo.exe` it replaced in 2026-09.
 | `scripts/deploy.ps1` | Publish and install the CLI as `spo.exe` to `%LOCALAPPDATA%\Programs\spo` |
 | `scripts/install-monitor.ps1` | Publish the monitor and register the daily Scheduled Task |
 
-State lives in `%APPDATA%\spo` (`config.json`, `history.db`, `logs\`). The first time spo runs
-without a config it copies the spoticli login and monitor history over; spoticli is left untouched.
+State lives in `%APPDATA%\spo` (`config.json`, `history.db`, `logs\`).
 
 ## Getting started
 

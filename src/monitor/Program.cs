@@ -26,12 +26,6 @@ Log.Logger = new LoggerConfiguration()
 
 try
 {
-    var import = LegacyImport.Run();
-    if (import.ConfigImported)
-    {
-        Log.Information("{Message}", import.Describe());
-    }
-
     var config = ApplicationConfig.Load();
 
     var services = new ServiceCollection()

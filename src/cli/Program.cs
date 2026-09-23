@@ -19,12 +19,6 @@ public static class Program
     {
         try
         {
-            var import = LegacyImport.Run();
-            if (import.ConfigImported)
-            {
-                ConsoleWrapper.WriteInfo(import.Describe());
-            }
-
             var services = new ServiceCollection()
                 .AddSingleton(ApplicationConfig.Load())
                 .AddSingleton<ISpotifyClientFactory, SpotifyClientFactory>()

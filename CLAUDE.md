@@ -43,8 +43,6 @@ The exe acts on the owner's real account (`%APPDATA%\spo\config.json`).
   first, show the plan, get approval, run it, then verify by reading the result back.
 - `trackCount` in `playlists --format json` lags for newly created playlists; count tracks with
   `--show-tracks` instead.
-- On first run without `%APPDATA%\spo\config.json` the app imports the legacy spoticli login and
-  history (`LegacyImport`). Don't trigger that by accident on a fresh machine.
 
 ## Playlist work
 
