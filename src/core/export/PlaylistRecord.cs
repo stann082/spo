@@ -1,3 +1,4 @@
+using System.Net;
 using SpotifyAPI.Web;
 
 namespace core.export;
@@ -13,6 +14,11 @@ public class PlaylistRecord
     public string Uri { get; init; }
 
     public string Name { get; init; }
+
+    /// <summary>Plain text; Spotify returns it HTML-escaped. Absent when the playlist has none.</summary>
+    public string Description { get; init; }
+
+    public bool? Public { get; init; }
 
     public string Owner { get; init; }
 
@@ -33,6 +39,8 @@ public class PlaylistRecord
             Id = playlist.Id,
             Uri = playlist.Uri,
             Name = playlist.Name,
+            Description = string.IsNullOrWhiteSpace(playlist.Description) ? null : WebUtility.HtmlDecode(playlist.Description),
+            Public = playlist.Public,
             Owner = playlist.Owner?.DisplayName,
             OwnerId = playlist.Owner?.Id,
             TrackCount = playlist.Tracks?.Total,

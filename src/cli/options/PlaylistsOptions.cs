@@ -21,10 +21,13 @@ public class PlaylistsOptions
     [Option("remove", SetName = "remove", MetaValue = "FILE", HelpText = "Remove tracks from an existing playlist, from a JSON file in the --create format; \"name\" picks the playlist. Tracks are removed by id only, and every id must be in the playlist.")]
     public string RemoveFile { get; set; }
 
+    [Option("describe", SetName = "describe", MetaValue = "FILE", HelpText = "Set the descriptions of existing playlists from a JSON file: { playlists: [{ name, description }] }. \"name\" is a playlist name or id; descriptions already as given are left alone.")]
+    public string DescribeFile { get; set; }
+
     [Option("mark-orphans", SetName = "split", HelpText = "With --split, rename the source to '<name>_orphaned tracks' and make it private if any tracks stay behind.")]
     public bool MarkOrphans { get; set; }
 
-    [Option("dry-run", HelpText = "With --create, --add, --split, --move or --remove, show what would happen without changing anything.")]
+    [Option("dry-run", HelpText = "With --create, --add, --split, --move, --remove or --describe, show what would happen without changing anything.")]
     public bool DryRun { get; set; }
 
     [Option('q', "query", SetName = "list", HelpText = "Only playlists whose name contains this text (case-insensitive).")]

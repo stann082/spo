@@ -111,6 +111,32 @@ public class JsonExportTests
         });
     }
 
+    [Test]
+    public void PlaylistRecord_DecodesTheDescriptionSpotifyReturnsEscaped()
+    {
+        var json = Parse(PlaylistRecord.From(new SimplePlaylist
+        {
+            Id = "p1",
+            Name = "Soft Landing",
+            Description = "Dave Koz &amp; friends &#x27;til dawn",
+            Public = true
+        }));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That((string)json["description"], Is.EqualTo("Dave Koz & friends 'til dawn"));
+            Assert.That((bool)json["public"], Is.True);
+        });
+    }
+
+    [Test]
+    public void PlaylistRecord_WithoutADescription_OmitsIt()
+    {
+        var json = Parse(PlaylistRecord.From(new SimplePlaylist { Id = "p1", Name = "Pop2K", Description = "" }));
+
+        Assert.That(json.ContainsKey("description"), Is.False);
+    }
+
     #endregion
 
 }
