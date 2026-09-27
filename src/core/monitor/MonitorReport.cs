@@ -39,9 +39,9 @@ public static class MonitorReport
             }
         }
 
-        if (result.Favorites != null)
+        foreach (var playlist in result.Favorites)
         {
-            lines.Add(result.Favorites.Describe());
+            lines.Add(playlist.Describe());
         }
 
         return lines;

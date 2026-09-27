@@ -19,4 +19,11 @@ public class MonitorConfig
     /// </summary>
     public string FavoritesPlaylist { get; set; } = "{year} Favs";
 
+    /// <summary>
+    /// Name of a second playlist kept equal to your top 50 tracks of the last 4 weeks (Spotify's
+    /// short range), in rank order. Same "{year}" rule as <see cref="FavoritesPlaylist"/>; empty
+    /// (the default) turns it off.
+    /// </summary>
+    public string RotationPlaylist { get; set; } = "";
+
 }

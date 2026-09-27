@@ -20,10 +20,9 @@ public class TopMonitorService : ITopMonitorService
 
     #region Constants
 
-    /// <summary>The favorites playlist follows the long range: it is meant to show the year, not the month.</summary>
-    private const string FavoritesRange = "long";
-
+    // The favorites playlist shows the year (long range); the rotation playlist shows the month (short range).
     private const string FavoritesDescription = "Your top tracks of the last 12 months, kept up to date daily by spo.";
+    private const string RotationDescription = "Your top tracks of the last 4 weeks, kept up to date daily by spo.";
 
     #endregion
 
@@ -67,9 +66,31 @@ public class TopMonitorService : ITopMonitorService
             pruned = await _store.PruneAsync(capturedAt.AddDays(-settings.RetentionDays), cancellationToken);
         }
 
-        var favorites = string.IsNullOrWhiteSpace(settings.FavoritesPlaylist)
-            ? null
-            : await SyncFavoritesAsync(spotify, FavoritesPlaylist.Name(settings.FavoritesPlaylist, DateTime.Now), persist, cancellationToken);
+        var playlists = new List<(string format, string range, string description)>();
+        if (!string.IsNullOrWhiteSpace(settings.FavoritesPlaylist))
+        {
+            playlists.Add((settings.FavoritesPlaylist, "long", FavoritesDescription));
+        }
+
+        if (!string.IsNullOrWhiteSpace(settings.RotationPlaylist))
+        {
+            playlists.Add((settings.RotationPlaylist, "short", RotationDescription));
+        }
+
+        var now = DateTime.Now;
+        var names = playlists.Select(p => FavoritesPlaylist.Name(p.format, now)).ToList();
+        var favorites = new List<FavoritesSyncResult>();
+        for (int i = 0; i < playlists.Count; i++)
+        {
+            // Two settings resolving to one name would have the playlists overwrite each other every night.
+            if (names.Take(i).Contains(names[i], StringComparer.OrdinalIgnoreCase))
+            {
+                favorites.Add(new FavoritesSyncResult { PlaylistName = names[i], DryRun = !persist, Error = "FavoritesPlaylist and RotationPlaylist give the same name." });
+                continue;
+            }
+
+            favorites.Add(await SyncFavoritesAsync(spotify, names[i], playlists[i].range, playlists[i].description, persist, cancellationToken));
+        }
 
         return new MonitorRunResult
         {
@@ -115,16 +136,15 @@ public class TopMonitorService : ITopMonitorService
     }
 
     /// <summary>
-    /// Makes the favorites playlist equal to the long-range top tracks (Spotify: about the last 12
-    /// months), in rank order, creating it if this year's does not exist yet. A failure is
-    /// reported in the result rather than thrown: the snapshots are already saved and the report
-    /// should still go out.
+    /// Makes a playlist equal to the top tracks of <paramref name="range"/>, in rank order,
+    /// creating it if this year's does not exist yet. A failure is reported in the result rather
+    /// than thrown: the snapshots are already saved and the report should still go out.
     /// </summary>
-    private static async Task<FavoritesSyncResult> SyncFavoritesAsync(ISpotifyClient spotify, string name, bool persist, CancellationToken cancellationToken)
+    private static async Task<FavoritesSyncResult> SyncFavoritesAsync(ISpotifyClient spotify, string name, string range, string description, bool persist, CancellationToken cancellationToken)
     {
         try
         {
-            var top = await FetchTracksAsync(spotify, FavoritesRange, SpotifyLimits.TopItemsMax, cancellationToken);
+            var top = await FetchTracksAsync(spotify, range, SpotifyLimits.TopItemsMax, cancellationToken);
             var desired = top.Select(t => $"spotify:track:{t.SpotifyId}").ToList();
 
             var me = await spotify.UserProfile.Current(cancellationToken);
@@ -165,9 +185,9 @@ public class TopMonitorService : ITopMonitorService
             };
 
             // Keeps the description true when the range changes; it is only ever set by spo.
-            if (persist && playlist != null && playlist.Description != FavoritesDescription)
+            if (persist && playlist != null && playlist.Description != description)
             {
-                await spotify.Playlists.ChangeDetails(playlist.Id, new PlaylistChangeDetailsRequest { Description = FavoritesDescription }, cancellationToken);
+                await spotify.Playlists.ChangeDetails(playlist.Id, new PlaylistChangeDetailsRequest { Description = description }, cancellationToken);
             }
 
             if (!persist || (playlist != null && plan.IsUnchanged))
@@ -181,7 +201,7 @@ public class TopMonitorService : ITopMonitorService
                 var request = new PlaylistCreateRequest(name)
                 {
                     Public = true,
-                    Description = FavoritesDescription
+                    Description = description
                 };
                 playlistId = (await spotify.Playlists.Create(me.Id, request, cancellationToken)).Id;
             }

@@ -113,14 +113,22 @@ public class FavoritesPlaylistTests
     }
 
     [Test]
-    public void BuildLines_EndsWithThePlaylistLine()
+    public void BuildLines_EndsWithOneLinePerPlaylist()
     {
         var result = new MonitorRunResult
         {
-            Favorites = new FavoritesSyncResult { PlaylistName = "2026 Favs", Plan = new FavoritesPlan([], [], false), TrackCount = 50 }
+            Favorites =
+            [
+                new FavoritesSyncResult { PlaylistName = "2026 Favs", Plan = new FavoritesPlan([], [], false), TrackCount = 50 },
+                new FavoritesSyncResult { PlaylistName = "2026 Heavy Rotation", Created = true, Plan = new FavoritesPlan(["a"], [], false), TrackCount = 50 }
+            ]
         };
 
-        Assert.That(MonitorReport.BuildLines(result).Last(), Is.EqualTo("Playlist '2026 Favs' already matches your top 50 tracks."));
+        Assert.That(MonitorReport.BuildLines(result).TakeLast(2), Is.EqualTo(new[]
+        {
+            "Playlist '2026 Favs' already matches your top 50 tracks.",
+            "Playlist '2026 Heavy Rotation' created with your top 50 tracks."
+        }));
     }
 
     #endregion

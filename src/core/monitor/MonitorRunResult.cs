@@ -30,7 +30,7 @@ public class MonitorRunResult
     /// <summary>Snapshots discarded by retention on this run.</summary>
     public int PrunedSnapshots { get; init; }
 
-    /// <summary>What happened to the favorites playlist; null when it is turned off.</summary>
-    public FavoritesSyncResult Favorites { get; init; }
+    /// <summary>What happened to each monitor-kept playlist (favorites, rotation); empty when both are off.</summary>
+    public IReadOnlyList<FavoritesSyncResult> Favorites { get; init; } = [];
 
 }
