@@ -24,10 +24,13 @@ public class PlaylistsOptions
     [Option("describe", SetName = "describe", MetaValue = "FILE", HelpText = "Set the descriptions of existing playlists, and optionally rename them, from a JSON file: { playlists: [{ name, description, rename }] }. \"name\" is a playlist name or id; each entry needs a description, a rename or both; values already as given are left alone, and a new name may not clash with another playlist.")]
     public string DescribeFile { get; set; }
 
+    [Option("reorder", SetName = "reorder", MetaValue = "FILE", HelpText = "Reorder an existing playlist, from a JSON file: { name, tracks: [{ id }] } lists the whole new order, { name, spreadArtists: true } keeps the order but pulls apart tracks by the same artist (features included) that sit back to back. Tracks are moved one at a time, as few as possible, and keep their date added.")]
+    public string ReorderFile { get; set; }
+
     [Option("mark-orphans", SetName = "split", HelpText = "With --split, rename the source to '<name>_orphaned tracks' and make it private if any tracks stay behind.")]
     public bool MarkOrphans { get; set; }
 
-    [Option("dry-run", HelpText = "With --create, --add, --split, --move, --remove or --describe, show what would happen without changing anything.")]
+    [Option("dry-run", HelpText = "With --create, --add, --split, --move, --remove, --describe or --reorder, show what would happen without changing anything.")]
     public bool DryRun { get; set; }
 
     [Option('q', "query", SetName = "list", HelpText = "Only playlists whose name contains this text (case-insensitive).")]

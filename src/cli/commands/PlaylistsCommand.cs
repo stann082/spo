@@ -44,9 +44,14 @@ public static class PlaylistsCommand
             return PlaylistDescribeCommand.ExecuteAsync(options.DescribeFile, options.DryRun, clientFactory);
         }
 
+        if (!string.IsNullOrEmpty(options.ReorderFile))
+        {
+            return PlaylistReorderCommand.ExecuteAsync(options.ReorderFile, options.DryRun, clientFactory);
+        }
+
         if (options.DryRun)
         {
-            throw new SpoException("--dry-run only applies to --create, --add, --split, --move, --remove and --describe; listing never changes anything.");
+            throw new SpoException("--dry-run only applies to --create, --add, --split, --move, --remove, --describe and --reorder; listing never changes anything.");
         }
 
         return ListAsync(options, clientFactory);
