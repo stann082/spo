@@ -86,6 +86,59 @@ public class DescribeDefinitionTests
         Assert.That(ex.Message, Does.Contain("at least one playlist"));
     }
 
+    [Test]
+    public void Load_AcceptsARenameWithoutADescription()
+    {
+        var definition = DescribeDefinition.Load(WriteFile("""
+            { "playlists": [ { "name": "Pop2K", "rename": " Burned CD " } ] }
+            """));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(definition.Playlists.Single().Rename, Is.EqualTo("Burned CD"));
+            Assert.That(definition.Playlists.Single().Description, Is.Null);
+        });
+    }
+
+    [Test]
+    public void Load_ReportsRenameProblems()
+    {
+        var tooLong = new string('x', DescribeDefinition.MaxNameLength + 1);
+        var ex = Assert.Throws<SpoException>(() => DescribeDefinition.Load(WriteFile($$"""
+            {
+              "playlists": [
+                { "name": "Long", "rename": "{{tooLong}}" },
+                { "name": "One", "rename": "Same" },
+                { "name": "Two", "rename": "same" }
+              ]
+            }
+            """)));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(ex.Message, Does.Contain("'Long': the new name is 101 characters"));
+            Assert.That(ex.Message, Does.Contain("More than one playlist would be renamed to 'Same'"));
+        });
+    }
+
+    [Test]
+    public void FindNameConflicts_RefusesANameAnotherPlaylistAlreadyHas()
+    {
+        var conflicts = DescribeDefinition.FindNameConflicts([("Pop2K", "house warm")], ["Pop2K", "House Warm", "Duty Free"]);
+
+        Assert.That(conflicts.Single(), Does.Contain("Cannot rename 'Pop2K' to 'house warm'"));
+    }
+
+    [Test]
+    public void FindNameConflicts_AllowsANameFreedByAnotherRenameAndCaseOnlyChanges()
+    {
+        var conflicts = DescribeDefinition.FindNameConflicts(
+            [("Alpha", "Beta"), ("Beta", "Gamma"), ("chiptune", "Chiptune")],
+            ["Alpha", "Beta", "chiptune"]);
+
+        Assert.That(conflicts, Is.Empty);
+    }
+
     #endregion
 
 }

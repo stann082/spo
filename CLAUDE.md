@@ -51,7 +51,7 @@ The exe acts on the owner's real account (`%APPDATA%\spo\config.json`).
 ## Playlist work
 
 1. Export: `spo playlists -q "<name>" --show-tracks --show-genres --format json`.
-2. Write the plan file (`--create` / `--add` / `--split` / `--move` / `--remove` / `--describe` format, see `--help`) to a scratch
+2. Write the plan file (`--create` / `--add` / `--split` / `--move` / `--remove` / `--describe` format, see `--help`; `--describe` entries can also carry `"rename"`) to a scratch
    folder, never the repo.
 3. `--dry-run`, check every search match (album, year, id), swap bad matches for ids.
 4. Run, then read back and compare counts.
