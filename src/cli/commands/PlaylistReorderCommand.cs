@@ -105,10 +105,15 @@ public static class PlaylistReorderCommand
             })
             .ToList();
 
-        int unreadable = entries.Count(e => e == null);
-        if (unreadable > 0)
+        var unreadable = entries
+            .Select((entry, index) => (entry, index))
+            .Where(x => x.entry == null)
+            .Select(x => x.index == 0 ? "#1" : $"#{x.index + 1} (after {entries[x.index - 1]?.Display ?? "another one"})")
+            .ToList();
+
+        if (unreadable.Count > 0)
         {
-            throw new SpoException($"'{playlist.Name}' has {unreadable} item(s) Spotify gives no details for, so positions cannot be worked out. Remove them in Spotify first.");
+            throw new SpoException($"'{playlist.Name}' has {unreadable.Count} item(s) Spotify gives no details for, so positions cannot be worked out. Remove them in Spotify first: {string.Join("; ", unreadable)}");
         }
 
         return entries;
