@@ -1,5 +1,6 @@
 using core;
 using core.config;
+using core.plays;
 using core.spotify;
 using Microsoft.Extensions.DependencyInjection;
 using SpotifyAPI.Web;
@@ -23,6 +24,7 @@ public static class Program
                 .AddSingleton(ApplicationConfig.Load())
                 .AddSingleton<ISpotifyClientFactory, SpotifyClientFactory>()
                 .AddSingleton<ILoginService, LoginService>()
+                .AddSingleton<IPlayStore>(_ => new SqlitePlayStore())
                 .AddSingleton<App>()
                 .BuildServiceProvider();
 

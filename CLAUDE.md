@@ -38,7 +38,7 @@ dotnet test
 
 The exe acts on the owner's real account (`%APPDATA%\spo\config.json`).
 
-- Read-only commands (`playlists`, `--show-tracks`, `top`, `tracks`) are fine to run freely.
+- Read-only commands (`playlists`, `--show-tracks`, `top`, `tracks`, `plays`) are fine to run freely.
 - Anything that writes (`--create`, `--add`, `--split`, `--move`, `--remove`, `--describe`, `--reorder`, `--mark-orphans`): run with `--dry-run`
   first, show the plan, get approval, run it, then verify by reading the result back.
 - `trackCount` in `playlists --format json` lags for newly created playlists; count tracks with
@@ -47,6 +47,10 @@ The exe acts on the owner's real account (`%APPDATA%\spo\config.json`).
   to match the top 50 tracks of the long range (`top -r long`, about 12 months). Try monitor
   changes with `--dry-run --no-notify`. Spotify's top lists shift within minutes, so a rerun soon
   after can report a few moves.
+- Spotify has no play counts. `spo-monitor --plays-only` (Scheduled Task `spo Play Log`, every 30
+  minutes) copies the recently-played list, which only holds the last 50 plays, into the `plays`
+  table of `history.db`; `spo plays` counts from it. It writes nothing to Spotify, and counts only
+  start on the day the task was installed.
 
 ## Playlist work
 

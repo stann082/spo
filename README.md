@@ -7,12 +7,12 @@ Successor to spoticli, whose `spo.exe` it replaced in 2026-09.
 
 | Path | What |
 |---|---|
-| `src/core` | Config, Spotify auth and client, batching, monitor diff/report/SQLite store, DJ-mix ordering |
+| `src/core` | Config, Spotify auth and client, batching, monitor diff/report/SQLite store, play log, DJ-mix ordering |
 | `src/cli` | `spo.exe` - the command line |
-| `src/monitor` | `spo-monitor.exe` - daily snapshot + Windows toast, run by a Scheduled Task |
+| `src/monitor` | `spo-monitor.exe` - daily snapshot + Windows toast, and the half-hourly play log (`--plays-only`), run by Scheduled Tasks |
 | `tests/core.test` | NUnit tests for `core` |
 | `scripts/deploy.ps1` | Publish and install the CLI as `spo.exe` to `%LOCALAPPDATA%\Programs\spo` |
-| `scripts/install-monitor.ps1` | Publish the monitor and register the daily Scheduled Task |
+| `scripts/install-monitor.ps1` | Publish the monitor and register the daily and the half-hourly Scheduled Tasks |
 
 State lives in `%APPDATA%\spo` (`config.json`, `history.db`, `logs\`).
 

@@ -1,11 +1,15 @@
 <#
 .SYNOPSIS
-    Installs the spo top-list monitor as a daily Scheduled Task.
+    Installs the spo top-list monitor as a daily Scheduled Task, plus a half-hourly play log.
 
 .DESCRIPTION
     Publishes the monitor project as a single self-contained executable, copies it to
     %LOCALAPPDATA%\Programs\spo-monitor, and registers a Scheduled Task named
     "spo Top Monitor" that runs it once a day.
+
+    A second task, "spo Play Log", runs the same executable with --plays-only every half hour.
+    Spotify keeps no play counts and only shows your last 50 plays, so the counts that
+    'spo plays' reports are built by copying that list into history.db before it scrolls away.
 
     The task runs interactively as the current user. That matters twice over: the monitor
     reads your Spotify login from %APPDATA%\spo\config.json, and Windows only delivers
@@ -21,6 +25,9 @@
 .PARAMETER Time
     Time of day to run, as HH:mm. Defaults to 00:00 (midnight).
 
+.PARAMETER PlayLogMinutes
+    How often the play log runs, in minutes. Defaults to 30; 50 plays have to fit in between.
+
 .EXAMPLE
     .\install-monitor.ps1
     .\install-monitor.ps1 -Time 03:30
@@ -28,12 +35,16 @@
 [CmdletBinding()]
 param(
     [ValidatePattern('^\d{2}:\d{2}$')]
-    [string]$Time = '00:00'
+    [string]$Time = '00:00',
+
+    [ValidateRange(5, 120)]
+    [int]$PlayLogMinutes = 30
 )
 
 $ErrorActionPreference = 'Stop'
 
 $TaskName   = 'spo Top Monitor'
+$PlayTask   = 'spo Play Log'
 $TaskPath   = '\spo\'
 $InstallDir = Join-Path $env:LOCALAPPDATA 'Programs\spo-monitor'
 $RepoRoot   = Split-Path -Parent $PSScriptRoot
@@ -91,10 +102,47 @@ function Register-MonitorTask {
     Write-Host "Task registered." -ForegroundColor Green
 }
 
+function Register-PlayLogTask {
+    Write-Host "Registering scheduled task '$PlayTask' for every $PlayLogMinutes minutes..." -ForegroundColor Cyan
+
+    # A console program started by Task Scheduler flashes a window; conhost --headless runs it without one.
+    $action = New-ScheduledTaskAction -Execute 'conhost.exe' -Argument "--headless `"$ExePath`" --plays-only" -WorkingDirectory $InstallDir
+
+    # No -RepetitionDuration: the trigger repeats for as long as the task exists.
+    $trigger = New-ScheduledTaskTrigger -Once -At (Get-Date).Date -RepetitionInterval (New-TimeSpan -Minutes $PlayLogMinutes)
+
+    $principal = New-ScheduledTaskPrincipal -UserId "$env:USERDOMAIN\$env:USERNAME" -LogonType Interactive -RunLevel Limited
+
+    $settings = New-ScheduledTaskSettingsSet `
+        -StartWhenAvailable `
+        -AllowStartIfOnBatteries `
+        -DontStopIfGoingOnBatteries `
+        -ExecutionTimeLimit (New-TimeSpan -Minutes 5) `
+        -MultipleInstances IgnoreNew `
+        -Hidden
+
+    Register-ScheduledTask `
+        -TaskName $PlayTask `
+        -TaskPath $TaskPath `
+        -Action $action `
+        -Trigger $trigger `
+        -Principal $principal `
+        -Settings $settings `
+        -Description 'Copies your recently played Spotify tracks into the play log that "spo plays" counts.' `
+        -Force | Out-Null
+
+    Write-Host "Task registered." -ForegroundColor Green
+}
+
 function Unregister-MonitorTask {
     Write-Host "Removing scheduled task '$TaskName'..." -ForegroundColor Cyan
     Unregister-ScheduledTask -TaskName $TaskName -TaskPath $TaskPath -Confirm:$false
     Write-Host "Task removed." -ForegroundColor Green
+
+    if (Get-ScheduledTask -TaskName $PlayTask -TaskPath $TaskPath -ErrorAction SilentlyContinue) {
+        Unregister-ScheduledTask -TaskName $PlayTask -TaskPath $TaskPath -Confirm:$false
+        Write-Host "Removed the play log task." -ForegroundColor Green
+    }
 
     if (Test-Path $AumidKey) {
         Remove-Item $AumidKey -Recurse -Force
@@ -123,6 +171,7 @@ function Show-Summary {
     Write-Host ""
     Write-Host "Installed:  $ExePath"          -ForegroundColor Gray
     Write-Host "Schedule:   daily at $Time"     -ForegroundColor Gray
+    Write-Host "Play log:   every $PlayLogMinutes minutes (see it with 'spo plays')" -ForegroundColor Gray
     Write-Host "History:    $env:APPDATA\spo\history.db" -ForegroundColor Gray
     Write-Host "Logs:       $env:APPDATA\spo\logs"       -ForegroundColor Gray
     Write-Host ""
@@ -146,6 +195,7 @@ if ($null -eq $existing) {
     Publish-Monitor
     Copy-MonitorFiles
     Register-MonitorTask
+    Register-PlayLogTask
     Show-Summary
 
     $answer = Read-Host "Run it once now to record the baseline? [Y/n]"
@@ -157,9 +207,9 @@ else {
     Write-Host "Task '$TaskName' is already installed (state: $($existing.State))." -ForegroundColor Yellow
 
     $choices = @(
-        [System.Management.Automation.Host.ChoiceDescription]::new('&Reinstall', 'Republish the monitor, replace the binaries and re-register the task.')
+        [System.Management.Automation.Host.ChoiceDescription]::new('&Reinstall', 'Republish the monitor, replace the binaries and re-register both tasks.')
         [System.Management.Automation.Host.ChoiceDescription]::new('Run &now',   'Trigger the installed task immediately.')
-        [System.Management.Automation.Host.ChoiceDescription]::new('&Uninstall', 'Remove the task and the toast registration.')
+        [System.Management.Automation.Host.ChoiceDescription]::new('&Uninstall', 'Remove both tasks and the toast registration.')
         [System.Management.Automation.Host.ChoiceDescription]::new('&Cancel',    'Do nothing and exit.')
     )
     $choice = $Host.UI.PromptForChoice("Task already exists", "What would you like to do?", $choices, 0)
@@ -169,6 +219,7 @@ else {
             Publish-Monitor
             Copy-MonitorFiles
             Register-MonitorTask
+            Register-PlayLogTask
             Show-Summary
         }
         1 { Start-MonitorTask }

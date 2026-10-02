@@ -26,4 +26,10 @@ public class MonitorConfig
     /// </summary>
     public string RotationPlaylist { get; set; } = "";
 
+    /// <summary>
+    /// Whether the daily run also copies your recently played tracks into the play log, which is
+    /// what `spo plays` counts. The half-hourly "--plays-only" run records them either way.
+    /// </summary>
+    public bool RecordPlays { get; set; } = true;
+
 }
