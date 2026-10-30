@@ -50,7 +50,8 @@ The exe acts on the owner's real account (`%APPDATA%\spo\config.json`).
 - Spotify has no play counts. `spo-monitor --plays-only` (Scheduled Task `spo Play Log`, every 30
   minutes) copies the recently-played list, which only holds the last 50 plays, into the `plays`
   table of `history.db`; `spo plays` counts from it. It writes nothing to Spotify, and counts only
-  start on the day the task was installed.
+  start on the day the task was installed. `spo plays -p <playlist>` matches plays by track id, so
+  a play of another release of the same song (single vs album) does not count towards the playlist.
 
 ## Playlist work
 

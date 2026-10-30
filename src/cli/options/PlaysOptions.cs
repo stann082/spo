@@ -12,6 +12,9 @@ public class PlaysOptions
     [Option('q', "query", HelpText = "Only tracks whose title or artists contain this text (case-insensitive).")]
     public string Query { get; set; }
 
+    [Option('p', "playlist", MetaValue = "NAME", HelpText = "Only tracks in this playlist, by its exact name or id (case-insensitive). Reads the playlist from Spotify.")]
+    public string Playlist { get; set; }
+
     [Option("since", MetaValue = "DATE", HelpText = "Only count plays from this day on, as yyyy-MM-dd.")]
     public string Since { get; set; }
 

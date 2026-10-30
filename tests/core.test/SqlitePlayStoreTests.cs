@@ -153,6 +153,43 @@ public class SqlitePlayStoreTests
     }
 
     [Test]
+    public async Task GetCountsAsync_CountsOnlyTheGivenTracks()
+    {
+        await _store.SaveAsync([Play(1, "a"), Play(2, "b"), Play(3, "a"), Play(4, "c")]);
+
+        var counts = await _store.GetCountsAsync(10, trackIds: ["a", "c", "never-played"]);
+        var none = await _store.GetCountsAsync(10, trackIds: []);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(counts.Select(c => (c.TrackId, c.Plays)), Is.EqualTo(new[] { ("a", 2), ("c", 1) }));
+            Assert.That(none, Is.Empty);
+        });
+    }
+
+    [Test]
+    public async Task GetCountsAsync_TakesMoreTrackIdsThanSqliteTakesParameters()
+    {
+        // A big playlist easily passes the 999 parameters older SQLite builds allow.
+        await _store.SaveAsync([Play(1, "id-1500"), Play(2, "elsewhere")]);
+        var ids = Enumerable.Range(0, 2000).Select(i => $"id-{i}").ToList();
+
+        var counts = await _store.GetCountsAsync(10, trackIds: ids);
+
+        Assert.That(counts.Single().TrackId, Is.EqualTo("id-1500"));
+    }
+
+    [Test]
+    public async Task GetCountsAsync_CombinesTheTrackFilterWithTheOthers()
+    {
+        await _store.SaveAsync([Play(1, "a", "Walk", "Pantera"), Play(20, "a", "Walk", "Pantera"), Play(21, "b", "Blind", "Korn")]);
+
+        var counts = await _store.GetCountsAsync(10, query: "pantera", sinceUtc: Noon.AddMinutes(10), trackIds: ["a", "b"]);
+
+        Assert.That(counts.Select(c => (c.TrackId, c.Plays)), Is.EqualTo(new[] { ("a", 1) }));
+    }
+
+    [Test]
     public async Task GetSummaryAsync_DescribesTheWholeLog()
     {
         var empty = await _store.GetSummaryAsync();

@@ -47,7 +47,7 @@ public class App
                 (LoginOptions opts) => LoginCommand.ExecuteAsync(opts, _loginService),
                 (LogoutOptions _) => LogoutCommand.ExecuteAsync(_config),
                 (PlaylistsOptions opts) => PlaylistsCommand.ExecuteAsync(opts, _clientFactory),
-                (PlaysOptions opts) => PlaysCommand.ExecuteAsync(opts, _playStore),
+                (PlaysOptions opts) => PlaysCommand.ExecuteAsync(opts, _playStore, _clientFactory),
                 (TopOptions opts) => TopCommand.ExecuteAsync(opts, _clientFactory),
                 (TracksOptions opts) => TracksCommand.ExecuteAsync(opts, _clientFactory),
                 errors => Task.FromResult(errors.IsHelp() || errors.IsVersion() ? 0 : 2));

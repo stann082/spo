@@ -1,5 +1,6 @@
 using core.config;
 using Microsoft.Data.Sqlite;
+using Newtonsoft.Json;
 
 namespace core.plays;
 
@@ -110,23 +111,26 @@ public class SqlitePlayStore : IPlayStore
         return added;
     }
 
-    public async Task<IReadOnlyList<PlayCount>> GetCountsAsync(int limit, string query = null, DateTime? sinceUtc = null, CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<PlayCount>> GetCountsAsync(int limit, string query = null, DateTime? sinceUtc = null, IReadOnlyCollection<string> trackIds = null, CancellationToken cancellationToken = default)
     {
         await using var connection = await OpenAsync(cancellationToken);
         await using var command = connection.CreateCommand();
 
-        // instr rather than LIKE, so a "%" or "_" in the search text means just that.
+        // instr rather than LIKE, so a "%" or "_" in the search text means just that. The track
+        // ids go in as one JSON array, since a playlist can hold more than SQLite's parameter limit.
         command.CommandText = """
             SELECT track_id, name, artists, COUNT(*) AS plays, MIN(played_at), MAX(played_at) AS last_played
             FROM plays
             WHERE ($since IS NULL OR played_at >= $since)
               AND ($query IS NULL OR instr(lower(name), lower($query)) > 0 OR instr(lower(artists), lower($query)) > 0)
+              AND ($ids IS NULL OR track_id IN (SELECT value FROM json_each($ids)))
             GROUP BY track_id
             ORDER BY plays DESC, last_played DESC
             LIMIT $limit;
             """;
         command.Parameters.AddWithValue("$since", sinceUtc.HasValue ? FormatTimestamp(sinceUtc.Value) : DBNull.Value);
         command.Parameters.AddWithValue("$query", string.IsNullOrWhiteSpace(query) ? DBNull.Value : query.Trim());
+        command.Parameters.AddWithValue("$ids", trackIds == null ? DBNull.Value : JsonConvert.SerializeObject(trackIds));
         command.Parameters.AddWithValue("$limit", limit);
 
         var counts = new List<PlayCount>();
