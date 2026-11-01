@@ -31,7 +31,7 @@ public static class PlaysCommand
         await store.InitializeAsync();
 
         // With a playlist, every played track is fetched so the summary can say how much of it was played.
-        var matching = await store.GetCountsAsync(playlist == null ? options.Limit : int.MaxValue, options.Query, since, playlist?.TrackIds);
+        var matching = await store.GetCountsAsync(playlist == null ? options.Limit : int.MaxValue, options.Query, since, playlist?.Tracks);
         var counts = matching.Take(options.Limit).ToList();
 
         if (json)
@@ -51,7 +51,7 @@ public static class PlaysCommand
         Console.WriteLine($"{summary.Plays} play(s) of {summary.Tracks} track(s) logged since {summary.FirstPlayed.Value.ToLocalTime():yyyy-MM-dd}.");
         if (playlist != null)
         {
-            Console.WriteLine($"'{playlist.Name}': {matching.Count} of its {playlist.TrackIds.Count} track(s) played, {matching.Sum(c => c.Plays)} play(s).");
+            Console.WriteLine($"'{playlist.Name}': {matching.Count} of its {playlist.Tracks.Count} track(s) played, {matching.Sum(c => c.Plays)} play(s).");
         }
 
         Console.WriteLine();
@@ -75,9 +75,9 @@ public static class PlaysCommand
 
     #region Helper Methods
 
-    private record PlaylistTracks(string Name, IReadOnlyCollection<string> TrackIds);
+    private record PlaylistTracks(string Name, IReadOnlyCollection<TrackMatch> Tracks);
 
-    /// <summary>The ids of a playlist's tracks; local files and podcast episodes have none and are left out.</summary>
+    /// <summary>A playlist's tracks, once each; local files and podcast episodes have no id and are left out.</summary>
     private static async Task<PlaylistTracks> GetPlaylistAsync(ISpotifyClientFactory clientFactory, string nameOrId)
     {
         var spotify = clientFactory.CreateUserClient();
@@ -85,13 +85,18 @@ public static class PlaysCommand
         var playlist = PlaylistLookup.Find(await spotify.PaginateAll(page), nameOrId);
 
         var itemsPage = await spotify.Playlists.GetItems(playlist.Id);
-        var ids = (await spotify.PaginateAll(itemsPage))
+        var tracks = (await spotify.PaginateAll(itemsPage))
             .Select(item => item.Track as FullTrack)
             .Where(track => !string.IsNullOrEmpty(track?.Id))
-            .Select(track => track.Id)
-            .ToHashSet();
+            .DistinctBy(track => track.Id)
+            .Select(track => new TrackMatch(
+                track.Id,
+                track.Name,
+                string.Join(", ", track.Artists.Select(a => a.Name)),
+                track.Artists.FirstOrDefault()?.Name ?? string.Empty))
+            .ToList();
 
-        return new PlaylistTracks(playlist.Name, ids);
+        return new PlaylistTracks(playlist.Name, tracks);
     }
 
     /// <summary>The start of that day here, as UTC; null when no date was given.</summary>

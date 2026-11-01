@@ -17,8 +17,11 @@ public interface IPlayStore
     /// </summary>
     /// <param name="query">Only tracks whose name or artists contain this text; null for all.</param>
     /// <param name="sinceUtc">Only plays from this moment on; null for all.</param>
-    /// <param name="trackIds">Only these tracks (for example a playlist's); null for all.</param>
-    Task<IReadOnlyList<PlayCount>> GetCountsAsync(int limit, string query = null, DateTime? sinceUtc = null, IReadOnlyCollection<string> trackIds = null, CancellationToken cancellationToken = default);
+    /// <param name="tracks">
+    /// Only these tracks (for example a playlist's); null for all. Plays of another release of the
+    /// same song are counted under the given track, with its id, title and artists.
+    /// </param>
+    Task<IReadOnlyList<PlayCount>> GetCountsAsync(int limit, string query = null, DateTime? sinceUtc = null, IReadOnlyCollection<TrackMatch> tracks = null, CancellationToken cancellationToken = default);
 
     Task<PlayLogSummary> GetSummaryAsync(CancellationToken cancellationToken = default);
 

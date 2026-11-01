@@ -111,26 +111,48 @@ public class SqlitePlayStore : IPlayStore
         return added;
     }
 
-    public async Task<IReadOnlyList<PlayCount>> GetCountsAsync(int limit, string query = null, DateTime? sinceUtc = null, IReadOnlyCollection<string> trackIds = null, CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<PlayCount>> GetCountsAsync(int limit, string query = null, DateTime? sinceUtc = null, IReadOnlyCollection<TrackMatch> tracks = null, CancellationToken cancellationToken = default)
     {
         await using var connection = await OpenAsync(cancellationToken);
         await using var command = connection.CreateCommand();
 
-        // instr rather than LIKE, so a "%" or "_" in the search text means just that. The track
-        // ids go in as one JSON array, since a playlist can hold more than SQLite's parameter limit.
+        // instr rather than LIKE, so a "%" or "_" in the search text means just that. The tracks to
+        // count go in as one JSON array, since a playlist can hold more than SQLite's parameter limit.
+        // Each play is counted under one of them at most: the one with its id, or else the first with
+        // its title and lead artist (the lead artist is the whole list, or the start of it before ", ").
         command.CommandText = """
-            SELECT track_id, name, artists, COUNT(*) AS plays, MIN(played_at), MAX(played_at) AS last_played
-            FROM plays
-            WHERE ($since IS NULL OR played_at >= $since)
-              AND ($query IS NULL OR instr(lower(name), lower($query)) > 0 OR instr(lower(artists), lower($query)) > 0)
-              AND ($ids IS NULL OR track_id IN (SELECT value FROM json_each($ids)))
-            GROUP BY track_id
+            WITH wanted AS (
+                SELECT json_extract(value, '$.Id') AS id,
+                       json_extract(value, '$.Name') AS name,
+                       json_extract(value, '$.Artists') AS artists,
+                       lower(json_extract(value, '$.Name')) AS name_key,
+                       lower(json_extract(value, '$.LeadArtist')) AS lead_key
+                FROM json_each($tracks)
+                GROUP BY id
+            ),
+            matched AS (
+                SELECT p.played_at, p.name, p.artists,
+                       CASE WHEN $tracks IS NULL THEN p.track_id ELSE coalesce(
+                           (SELECT w.id FROM wanted w WHERE w.id = p.track_id),
+                           (SELECT w.id FROM wanted w
+                            WHERE w.name_key = lower(p.name)
+                              AND (lower(p.artists) = w.lead_key OR substr(lower(p.artists), 1, length(w.lead_key) + 2) = w.lead_key || ', ')
+                            LIMIT 1)) END AS track_id
+                FROM plays p
+                WHERE ($since IS NULL OR p.played_at >= $since)
+                  AND ($query IS NULL OR instr(lower(p.name), lower($query)) > 0 OR instr(lower(p.artists), lower($query)) > 0)
+            )
+            SELECT m.track_id, coalesce(w.name, m.name), coalesce(w.artists, m.artists), COUNT(*) AS plays, MIN(m.played_at), MAX(m.played_at) AS last_played
+            FROM matched m
+            LEFT JOIN wanted w ON w.id = m.track_id
+            WHERE m.track_id IS NOT NULL
+            GROUP BY m.track_id
             ORDER BY plays DESC, last_played DESC
             LIMIT $limit;
             """;
         command.Parameters.AddWithValue("$since", sinceUtc.HasValue ? FormatTimestamp(sinceUtc.Value) : DBNull.Value);
         command.Parameters.AddWithValue("$query", string.IsNullOrWhiteSpace(query) ? DBNull.Value : query.Trim());
-        command.Parameters.AddWithValue("$ids", trackIds == null ? DBNull.Value : JsonConvert.SerializeObject(trackIds));
+        command.Parameters.AddWithValue("$tracks", tracks == null ? DBNull.Value : JsonConvert.SerializeObject(tracks));
         command.Parameters.AddWithValue("$limit", limit);
 
         var counts = new List<PlayCount>();

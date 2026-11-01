@@ -152,13 +152,18 @@ public class SqlitePlayStoreTests
         Assert.That(counts.Select(c => (c.TrackId, c.Plays)), Is.EquivalentTo(new[] { ("a", 1), ("b", 1) }));
     }
 
+    private static TrackMatch Track(string id, string name = null, string artists = "Someone")
+    {
+        return new TrackMatch(id, name ?? $"Song {id}", artists, artists.Split(", ")[0]);
+    }
+
     [Test]
     public async Task GetCountsAsync_CountsOnlyTheGivenTracks()
     {
         await _store.SaveAsync([Play(1, "a"), Play(2, "b"), Play(3, "a"), Play(4, "c")]);
 
-        var counts = await _store.GetCountsAsync(10, trackIds: ["a", "c", "never-played"]);
-        var none = await _store.GetCountsAsync(10, trackIds: []);
+        var counts = await _store.GetCountsAsync(10, tracks: [Track("a"), Track("c"), Track("never-played")]);
+        var none = await _store.GetCountsAsync(10, tracks: []);
 
         Assert.Multiple(() =>
         {
@@ -168,13 +173,13 @@ public class SqlitePlayStoreTests
     }
 
     [Test]
-    public async Task GetCountsAsync_TakesMoreTrackIdsThanSqliteTakesParameters()
+    public async Task GetCountsAsync_TakesMoreTracksThanSqliteTakesParameters()
     {
         // A big playlist easily passes the 999 parameters older SQLite builds allow.
         await _store.SaveAsync([Play(1, "id-1500"), Play(2, "elsewhere")]);
-        var ids = Enumerable.Range(0, 2000).Select(i => $"id-{i}").ToList();
+        var tracks = Enumerable.Range(0, 2000).Select(i => Track($"id-{i}")).ToList();
 
-        var counts = await _store.GetCountsAsync(10, trackIds: ids);
+        var counts = await _store.GetCountsAsync(10, tracks: tracks);
 
         Assert.That(counts.Single().TrackId, Is.EqualTo("id-1500"));
     }
@@ -184,9 +189,83 @@ public class SqlitePlayStoreTests
     {
         await _store.SaveAsync([Play(1, "a", "Walk", "Pantera"), Play(20, "a", "Walk", "Pantera"), Play(21, "b", "Blind", "Korn")]);
 
-        var counts = await _store.GetCountsAsync(10, query: "pantera", sinceUtc: Noon.AddMinutes(10), trackIds: ["a", "b"]);
+        var counts = await _store.GetCountsAsync(10, query: "pantera", sinceUtc: Noon.AddMinutes(10), tracks: [Track("a", "Walk", "Pantera"), Track("b", "Blind", "Korn")]);
 
         Assert.That(counts.Select(c => (c.TrackId, c.Plays)), Is.EqualTo(new[] { ("a", 1) }));
+    }
+
+    [Test]
+    public async Task GetCountsAsync_CountsAnotherReleaseOfTheSameSongUnderTheGivenTrack()
+    {
+        // The playlist holds the album track; the single was played from the artist's page.
+        await _store.SaveAsync(
+        [
+            Play(1, "album", "New Rules", "Dua Lipa"),
+            Play(2, "single", "new rules", "DUA LIPA"),
+            Play(3, "single", "New Rules", "Dua Lipa"),
+            Play(4, "feature", "New Rules", "Dua Lipa, Someone Else")
+        ]);
+
+        var counts = await _store.GetCountsAsync(10, tracks: [new TrackMatch("album", "New Rules", "Dua Lipa", "Dua Lipa")]);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(counts.Single().TrackId, Is.EqualTo("album"));
+            Assert.That(counts.Single().Plays, Is.EqualTo(4));
+            Assert.That(counts.Single().FirstPlayed, Is.EqualTo(Noon.AddMinutes(1)));
+            Assert.That(counts.Single().LastPlayed, Is.EqualTo(Noon.AddMinutes(4)));
+        });
+    }
+
+    [Test]
+    public async Task GetCountsAsync_DoesNotMatchOtherVersionsOrOtherArtists()
+    {
+        await _store.SaveAsync(
+        [
+            Play(1, "remaster", "Walk - Remastered", "Pantera"),
+            Play(2, "cover", "Walk", "Someone Else, Pantera"),
+            Play(3, "prefix", "Walk", "Pantera Tribute Band"),
+            Play(4, "other", "Walk", "The Pantera")
+        ]);
+
+        var counts = await _store.GetCountsAsync(10, tracks: [Track("album", "Walk", "Pantera")]);
+
+        Assert.That(counts, Is.Empty);
+    }
+
+    [Test]
+    public async Task GetCountsAsync_MatchesALeadArtistWhoseNameHasAComma()
+    {
+        await _store.SaveAsync([Play(1, "single", "EARFQUAKE", "Tyler, The Creator"), Play(2, "remix", "EARFQUAKE", "Tyler, The Creator, Playboi Carti")]);
+
+        var counts = await _store.GetCountsAsync(10, tracks: [new TrackMatch("album", "EARFQUAKE", "Tyler, The Creator", "Tyler, The Creator")]);
+
+        Assert.That(counts.Single().Plays, Is.EqualTo(2));
+    }
+
+    [Test]
+    public async Task GetCountsAsync_CountsAPlayOnceWhenThePlaylistHasTwoReleasesOfTheSong()
+    {
+        // Each play goes to the track with its own id, not to both.
+        await _store.SaveAsync([Play(1, "album", "Blinding Lights", "The Weeknd"), Play(2, "single", "Blinding Lights", "The Weeknd"), Play(3, "single", "Blinding Lights", "The Weeknd")]);
+
+        var counts = await _store.GetCountsAsync(10, tracks:
+        [
+            new TrackMatch("album", "Blinding Lights", "The Weeknd", "The Weeknd"),
+            new TrackMatch("single", "Blinding Lights", "The Weeknd", "The Weeknd")
+        ]);
+
+        Assert.That(counts.Select(c => (c.TrackId, c.Plays)), Is.EquivalentTo(new[] { ("single", 2), ("album", 1) }));
+    }
+
+    [Test]
+    public async Task GetCountsAsync_ShowsTheGivenTracksTitleAndArtists()
+    {
+        await _store.SaveAsync([Play(1, "single", "new rules", "DUA LIPA")]);
+
+        var count = (await _store.GetCountsAsync(10, tracks: [new TrackMatch("album", "New Rules", "Dua Lipa", "Dua Lipa")])).Single();
+
+        Assert.That((count.Name, count.Artists), Is.EqualTo(("New Rules", "Dua Lipa")));
     }
 
     [Test]
