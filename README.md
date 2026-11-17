@@ -1,7 +1,6 @@
 # spo
 
 Personal Spotify toolkit for Windows: a CLI (`spo`) and a daily top-list monitor (`spo-monitor`).
-Successor to spoticli, whose `spo.exe` it replaced in 2026-09.
 
 ## Layout
 
