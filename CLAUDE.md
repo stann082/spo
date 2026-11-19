@@ -44,7 +44,10 @@ The exe acts on the owner's real account (`%APPDATA%\spo\config.json`).
 - `trackCount` in `playlists --format json` lags for newly created playlists; count tracks with
   `--show-tracks` instead.
 - A real monitor run writes too: it rewrites the `{year} Favs` playlist (`Monitor.FavoritesPlaylist`)
-  to match the top 50 tracks of the long range (`top -r long`, about 12 months). Try monitor
+  to match the top 50 tracks of the long range (`top -r long`, about 12 months). Each top track is
+  swapped for the owner's own copy of the song from another of their playlists (same id, else same
+  title and lead artist once release tags like "- Radio Edit" and "(feat. ...)" are dropped;
+  `LibraryCopies`); only songs in none of their playlists keep Spotify's release. Try monitor
   changes with `--dry-run --no-notify`. Spotify's top lists shift within minutes, so a rerun soon
   after can report a few moves.
 - Spotify has no play counts. `spo-monitor --plays-only` (Scheduled Task `spo Play Log`, every 30

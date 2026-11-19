@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using core.config;
 using core.spotify;
 using SpotifyAPI.Web;
@@ -23,6 +24,9 @@ public class TopMonitorService : ITopMonitorService
     // The favorites playlist shows the year (long range); the rotation playlist shows the month (short range).
     private const string FavoritesDescription = "Your top tracks of the last 12 months, kept up to date daily by spo.";
     private const string RotationDescription = "Your top tracks of the last 4 weeks, kept up to date daily by spo.";
+
+    // Playlists read at once when collecting the user's own copies of songs.
+    private const int PlaylistReadConcurrency = 4;
 
     #endregion
 
@@ -80,6 +84,23 @@ public class TopMonitorService : ITopMonitorService
         var now = DateTime.Now;
         var names = playlists.Select(p => FavoritesPlaylist.Name(p.format, now)).ToList();
         var favorites = new List<FavoritesSyncResult>();
+
+        // The user's playlists, read once for both: the playlists to sync are found in them, and
+        // the tracks in the others are the copies to use.
+        Library library = null;
+        string libraryError = null;
+        if (playlists.Count > 0)
+        {
+            try
+            {
+                library = await LoadLibraryAsync(spotify, playlists.Select(p => p.format).ToList(), cancellationToken);
+            }
+            catch (Exception ex) when (ex is APIException or HttpRequestException)
+            {
+                libraryError = $"could not read your playlists: {ex.Message}";
+            }
+        }
+
         for (int i = 0; i < playlists.Count; i++)
         {
             // Two settings resolving to one name would have the playlists overwrite each other every night.
@@ -89,7 +110,14 @@ public class TopMonitorService : ITopMonitorService
                 continue;
             }
 
-            favorites.Add(await SyncFavoritesAsync(spotify, names[i], playlists[i].range, playlists[i].description, persist, cancellationToken));
+            // Without the library every track would fall back to Spotify's release, so skip the night instead.
+            if (libraryError != null)
+            {
+                favorites.Add(new FavoritesSyncResult { PlaylistName = names[i], DryRun = !persist, Error = libraryError });
+                continue;
+            }
+
+            favorites.Add(await SyncFavoritesAsync(spotify, library, names[i], playlists[i].range, playlists[i].description, persist, cancellationToken));
         }
 
         return new MonitorRunResult
@@ -140,17 +168,30 @@ public class TopMonitorService : ITopMonitorService
     /// creating it if this year's does not exist yet. A failure is reported in the result rather
     /// than thrown: the snapshots are already saved and the report should still go out.
     /// </summary>
-    private static async Task<FavoritesSyncResult> SyncFavoritesAsync(ISpotifyClient spotify, string name, string range, string description, bool persist, CancellationToken cancellationToken)
+    private static async Task<FavoritesSyncResult> SyncFavoritesAsync(ISpotifyClient spotify, Library library, string name, string range, string description, bool persist, CancellationToken cancellationToken)
     {
         try
         {
-            var top = await FetchTracksAsync(spotify, range, SpotifyLimits.TopItemsMax, cancellationToken);
-            var desired = top.Select(t => $"spotify:track:{t.SpotifyId}").ToList();
+            var topRequest = new PersonalizationTopRequest { Limit = SpotifyLimits.TopItemsMax, TimeRangeParam = SpotifyTimeRange.Parse(range) };
+            var top = (await spotify.Personalization.GetTopTracks(topRequest, cancellationToken)).Items ?? [];
 
-            var me = await spotify.UserProfile.Current(cancellationToken);
-            var page = await spotify.Playlists.CurrentUsers(new PlaylistCurrentUsersRequest { Limit = 50 }, cancellationToken);
-            var matches = (await spotify.PaginateAll(page))
-                .Where(p => p.Owner?.Id == me.Id && string.Equals(p.Name?.Trim(), name, StringComparison.OrdinalIgnoreCase))
+            // The user's own copy of each song when they have one; two releases of one song in the
+            // top list then become one track.
+            int swapped = 0, outside = 0;
+            var desired = new List<string>();
+            foreach (var track in top)
+            {
+                var copy = library.Copies.Find(track.Id, track.Name, track.Artists.FirstOrDefault()?.Name);
+                if (copy == null) outside++;
+                else if (copy != track.Id) swapped++;
+                desired.Add($"spotify:track:{copy ?? track.Id}");
+            }
+
+            desired = desired.Distinct(StringComparer.Ordinal).ToList();
+
+            var me = library.Me;
+            var matches = library.Playlists
+                .Where(p => string.Equals(p.Name?.Trim(), name, StringComparison.OrdinalIgnoreCase))
                 .ToList();
 
             if (matches.Count > 1)
@@ -181,6 +222,8 @@ public class TopMonitorService : ITopMonitorService
                 Created = playlist == null,
                 Plan = plan,
                 TrackCount = desired.Count,
+                SwappedForOwnCopy = swapped,
+                NotInOtherPlaylists = outside,
                 DryRun = !persist
             };
 
@@ -218,6 +261,38 @@ public class TopMonitorService : ITopMonitorService
         {
             return new FavoritesSyncResult { PlaylistName = name, DryRun = !persist, Error = ex.Message };
         }
+    }
+
+    private record Library(PrivateUser Me, IReadOnlyList<SimplePlaylist> Playlists, LibraryCopies Copies);
+
+    /// <summary>
+    /// The user's own playlists and the tracks in them. The playlists the monitor keeps, this
+    /// year's and earlier ones, are left out of the tracks: they are copies of the top lists.
+    /// </summary>
+    private static async Task<Library> LoadLibraryAsync(ISpotifyClient spotify, IReadOnlyList<string> managedFormats, CancellationToken cancellationToken)
+    {
+        var me = await spotify.UserProfile.Current(cancellationToken);
+        var page = await spotify.Playlists.CurrentUsers(new PlaylistCurrentUsersRequest { Limit = 50 }, cancellationToken);
+        var owned = (await spotify.PaginateAll(page)).Where(p => p.Owner?.Id == me.Id).ToList();
+
+        var managed = managedFormats
+            .Select(format => new Regex(
+                "^" + Regex.Escape(format.Trim()).Replace(Regex.Escape(FavoritesPlaylist.YearPlaceholder), @"\d{4}", StringComparison.OrdinalIgnoreCase) + "$",
+                RegexOptions.IgnoreCase))
+            .ToList();
+        var sources = owned.Where(p => !managed.Any(m => m.IsMatch(p.Name?.Trim() ?? string.Empty))).ToList();
+
+        var trackLists = await Batching.MapAsync(sources, PlaylistReadConcurrency, async (playlist, token) =>
+        {
+            var itemsPage = await spotify.Playlists.GetItems(playlist.Id, token);
+            return (await spotify.PaginateAll(itemsPage))
+                .Select(item => item.Track as FullTrack)
+                .Where(track => !string.IsNullOrEmpty(track?.Id))
+                .Select(track => new LibraryTrack(track.Id, track.Name, track.Artists.FirstOrDefault()?.Name))
+                .ToList();
+        }, cancellationToken);
+
+        return new Library(me, owned, new LibraryCopies(trackLists.SelectMany(tracks => tracks)));
     }
 
     private static async Task<List<TopEntry>> FetchArtistsAsync(ISpotifyClient spotify, string range, int limit, CancellationToken cancellationToken)
